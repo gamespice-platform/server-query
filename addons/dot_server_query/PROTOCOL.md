@@ -2,7 +2,7 @@
 
 Two protocols, either or both, chosen by an operator:
 
-| | **DQP** (dot query protocol) | **A2S** (the twenty-year-old one) |
+| | **DQP** (GS query protocol) | **A2S** (the twenty-year-old one) |
 | --- | --- | --- |
 | Default | on | off |
 | Transport | UDP, and WebSocket when enabled | UDP only |

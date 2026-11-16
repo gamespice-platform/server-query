@@ -1,6 +1,6 @@
 # dot-server-query
 
-The server's side of a server query: the dot query protocol (DQP) and the whole of A2S, answered from one snapshot, on one socket or two.
+The server's side of a server query: the GS query protocol (DQP) and the whole of A2S, answered from one snapshot, on one socket or two.
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to query. The reasoning is in [docs/](docs/README.md); the wire spec is [PROTOCOL.md](addons/dot_server_query/PROTOCOL.md).
 
