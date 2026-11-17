@@ -6,7 +6,7 @@ const SELFTEST_ARG := "--selftest"
 
 ## The app's URL segment on the website. Static, display-only, and the field a
 ## listing prints to say which game this is.
-const APP_URL := "dot-example-arena"
+const APP_URL := "dot-example-fc"
 
 var server: DotServer
 var host: DotQueryHost

@@ -40,7 +40,7 @@ The app slug, the A2S extra-data fields and what the statistics bridge publishes
 exports on the nodes instead of config keys, because they only exist in this addon:
 
 ```gdscript
-host.app_url = "arena"              # DotQueryHost
+host.app_url = "fc"              # DotQueryHost
 a2s.steam_id = 0                    # DotA2SServer, 0 omits the field
 a2s.spectator_port = 0
 a2s.game_id = 0
@@ -210,9 +210,9 @@ happened.
 {
   "protocol": 1,
   "name": "A dot server",       "server_id": "eu-1",
-  "map": "dm_arena",            "game_id": "arena",
-  "app": "arena",
-  "game": "Arena Deathmatch",   "folder": "dot",
+  "map": "dm_arena",            "game_id": "fc",
+  "app": "fc",
+  "game": "FC Deathmatch",   "folder": "dot",
   "version": "0.1.0",           "game_version": "1.4.0",
   "players": 12,                "bots": 4,
   "connecting": 2,
@@ -248,7 +248,7 @@ resolving a build and a play grant both ask the backbone, which knows.
 
 ```json
 "teams":    { "red": {"players": 6}, "blue": {"players": 5}, "_balanced": true },
-"rotation": { "current": "arena", "games": ["arena", "lobby"], "next": "lobby",
+"rotation": { "current": "fc", "games": ["fc", "lobby"], "next": "lobby",
               "changing": true },
 "perf":     { "fps": 60, "tickrate": 64, "uptime": 84213,
               "frame_ms": 1.42, "memory_mb": 184.3, "sessions": 14 },
@@ -452,11 +452,11 @@ per-team scores, the next map, a lobby's ready count, how much of a match is lef
 has historically smuggled it into the keywords string as `r3,t1:8,t2:5` and hoped.
 
 ```gdscript
-class ArenaQuery extends DotQueryProvider:
+class FcQuery extends DotQueryProvider:
     var match_state: DotMatchState
 
     func _provider_name() -> String:
-        return "arena"
+        return "fc"
 
     func _contribute(snapshot: DotQuerySnapshot) -> void:
         snapshot.info["bots"] = match_state.bot_count()
@@ -467,7 +467,7 @@ class ArenaQuery extends DotQueryProvider:
             "time_left": match_state.seconds_remaining(),
         })
 
-var provider := ArenaQuery.new()
+var provider := FcQuery.new()
 provider.match_state = state
 DotRegistry.get_service(&"dot_query_source").add_provider(provider)
 ```
