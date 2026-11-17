@@ -28,3 +28,8 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+/addons/dot_auth
+/addons/dot_cloud
+/addons/dot_moderation
+/addons/dot_sql
+/addons/dot_voice
