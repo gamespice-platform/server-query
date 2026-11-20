@@ -8,7 +8,7 @@ The two protocols are told apart by their first four bytes (`FF FF FF FF` is A2S
 
 So `DotQueryServer` binds and `DotA2SServer` attaches to it, sharing one challenge secret so `query_status` shows one window rather than two that expire at different times. Different ports and they bind separately; `DotA2SServer.open()` is the path that is not taken when they share.
 
-**When the game's transport already owns the UDP port** (ENet behind dot-server's demux, the dual-stack default), neither listener binds: each registers on the server with `share_udp_port(port, claims, handler)` and answers the datagrams its claim test accepts. The claim test runs on every ENet packet too, so the cheap byte test goes first. `close()` calls `unshare_udp_port`. Only when the port is held by something that will not share does the bind fail, and `_bind_advice` then says so, plus the part an operator needs to hear: set a different port, and know most trackers will not look there.
+**When the game's transport already owns the UDP port** (ENet behind GameSpice Server's demux, the dual-stack default), neither listener binds: each registers on the server with `share_udp_port(port, claims, handler)` and answers the datagrams its claim test accepts. The claim test runs on every ENet packet too, so the cheap byte test goes first. `close()` calls `unshare_udp_port`. Only when the port is held by something that will not share does the bind fail, and `_bind_advice` then says so, plus the part an operator needs to hear: set a different port, and know most trackers will not look there.
 
 ## The challenge is the reason this is safe to expose
 
@@ -27,7 +27,7 @@ UDP source addresses are forged trivially and a query is a small request produci
 
 ## The rate limiter is bounded too
 
-Both listeners limit by source address before the HMAC, which is the right order, but that key is an address nobody has proved. dot-core's `DotRateLimiter` kept one bucket per key and its sweep never evicted a key that had sent one packet, so a spoofed flood grew the table by one entry per datagram for the life of the process.
+Both listeners limit by source address before the HMAC, which is the right order, but that key is an address nobody has proved. GameSpice Core's `DotRateLimiter` kept one bucket per key and its sweep never evicted a key that had sent one packet, so a spoofed flood grew the table by one entry per datagram for the life of the process.
 
 `DotQueryLimiter` (the subclass both listeners use) drops refilled buckets (lossless: a refilled bucket is no bucket) and, past `max_tracked` (16,384) addresses, sends unknown ones to one shared bucket rather than refusing them, so a flood cannot lock new queriers out either. `describe()` reports it under `limiter`.
 
@@ -37,4 +37,4 @@ Gathering a snapshot walks every session, every cvar and every provider. Doing t
 
 ## What A2S publishes
 
-**A2S publishes player names, scores and connection times to anyone who asks, and always has.** `query_player_detail` governs it here too, and dot-server logs once at boot when A2S is on with `full`: an operator who turned A2S on to be listed may not have meant to publish a roster.
+**A2S publishes player names, scores and connection times to anyone who asks, and always has.** `query_player_detail` governs it here too, and GameSpice Server logs once at boot when A2S is on with `full`: an operator who turned A2S on to be listed may not have meant to publish a roster.

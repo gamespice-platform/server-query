@@ -1,17 +1,17 @@
-# dot-server-query
+# GameSpice Server Query
 
 The server's side of a server query: the GS query protocol (DQP) and the whole of A2S, answered from one snapshot, on one socket or two.
 
 Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to query. The reasoning is in [docs/](docs/README.md); the wire spec is [PROTOCOL.md](addons/dot_server_query/PROTOCOL.md).
 
-**The distributable is `addons/dot_server_query/`.** It requires dot-core and dot-server, and optionally bridges dot-stats, which is discovered at runtime and named nowhere in the source. The suite wants all three linked (`.gitignore`): linking the real dot-stats is what checks the duck-typed bridge against the thing it describes rather than a mock.
+**The distributable is `addons/dot_server_query/`.** It requires GameSpice Core and GameSpice Server, and optionally bridges GameSpice Stats, which is discovered at runtime and named nowhere in the source. The suite wants all three linked (`.gitignore`): linking the real GameSpice Stats is what checks the duck-typed bridge against the thing it describes rather than a mock.
 
 ## Read before
 
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/design.md](docs/design.md) | the dot-server hook, `DotQueryHost`, `DotQuerySource`, snapshot sections, `info.*` fields, `DotQueryStats` |
+| [docs/design.md](docs/design.md) | the GameSpice Server hook, `DotQueryHost`, `DotQuerySource`, snapshot sections, `info.*` fields, `DotQueryStats` |
 | [docs/exposure.md](docs/exposure.md) | the listeners, port sharing, `DotQueryChallenge`, `DotQueryLimiter`, the cache |
 | [docs/a2s.md](docs/a2s.md) | `DotA2SServer` |
 | [docs/history.md](docs/history.md) | the bugs, and how each looked |
@@ -27,23 +27,23 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | `addons/dot_server_query/source/` | `DotQuerySource`: builds and caches the snapshot; holds the providers |
 | `addons/dot_server_query/dqp/` | `DotQueryProtocol` (header, flags, fragments, gzip), `DotQueryServer` (UDP, and WebSocket for browsers) |
 | `addons/dot_server_query/a2s/` | `DotA2SServer`: A2S, all of it; off by default |
-| `addons/dot_server_query/stats/` | `DotQueryStats`: the dot-stats bridge; names no `DotStats*` identifier |
+| `addons/dot_server_query/stats/` | `DotQueryStats`: the GameSpice Stats bridge; names no `DotStats*` identifier |
 | `examples/query_selftest.tscn` | the suite; `-- --serve` runs it as a real server instead |
 
 ## Running and testing
 
 - The family's two steps ([family CLAUDE.md](../../CLAUDE.md#validating-anything)), then `godot --headless --path . res://examples/query_selftest.tscn`. Exits non-zero on failure. The last section boots a dual-stack server and asks A2S, and joins over ENet, on one real UDP port.
 - Both protocols are driven without a socket: `handle_datagram` takes a datagram and returns the datagrams to send, so DQP and A2S run in process (and on a machine where binding is refused). The listeners still bind for real in the example, so the shared-socket path is exercised rather than assumed.
-- **A change here means re-running dot-server's `examples/dedicated_server.tscn`, game-fatal-contact's and game-airdrift's `examples/dedicated.tscn`.** FC asks its own server over a real UDP socket through dot-browser; Airdrift asserts what its module contributes.
+- **A change here means re-running GameSpice Server's `examples/dedicated_server.tscn`, game-fatal-contact's and game-airdrift's `examples/dedicated.tscn`.** FC asks its own server over a real UDP socket through GameSpice Browser; Airdrift asserts what its module contributes.
 
 ## Rules that bite
 
 **The dependency**
 
-- dot-server names nothing here: one hook, `attach_query_host(host: Object)`, and every query field on `DotServer` is `Object` reached by `.call`. Naming a class from here in dot-server would make this addon mandatory. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
+- GameSpice Server names nothing here: one hook, `attach_query_host(host: Object)`, and every query field on `DotServer` is `Object` reached by `.call`. Naming a class from here in GameSpice Server would make this addon mandatory. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
 - The query settings (`query_*`, `a2s_*`, `sv_query`, `sv_a2s`, `sv_query_players`) stay on `DotServerConfig` so operators' config files keep working; settings that exist only here are node exports. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
 - `DotQueryHost._ready` waits for `dot_server` on the registry path, because a host beside a server is ready before the server registers. Both boot orders are in the suite. [design](docs/design.md#the-boot-handshake-in-both-directions)
-- dot-team (`dot_team_roster`) and dot-stats are duck-typed; never name their classes. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
+- GameSpice Team (`dot_team_roster`) and GameSpice Stats are duck-typed; never name their classes. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
 
 **The snapshot**
 
@@ -68,4 +68,4 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 - Never fabricate a platform id; the game-specific block only for `a2s_app_id` in the published range, and its per-player pair always written when it is on. [a2s](docs/a2s.md)
 - `query_player_detail` governs A2S too; A2S publishes a roster to anyone. [exposure](docs/exposure.md#what-a2s-publishes)
 
-Deliberately not here: a query client (dot-browser, a second implementation on purpose), delta responses, a master-server heartbeat, signing on by default. [design](docs/design.md#deliberately-not-here)
+Deliberately not here: a query client (GameSpice Browser, a second implementation on purpose), delta responses, a master-server heartbeat, signing on by default. [design](docs/design.md#deliberately-not-here)

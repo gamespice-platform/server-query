@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-## Editor entry point for dot-server-query. Registers inspector types only; no autoloads.
+## Editor entry point for GameSpice Server Query. Registers inspector types only; no autoloads.
 
 const _ICON := "res://addons/dot_server_query/icon_placeholder.svg"
 

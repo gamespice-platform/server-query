@@ -157,7 +157,7 @@ class SectionProbe extends DotQueryProvider:
 		snapshot.contribute_game({"round": round_number})
 
 
-## A statistics tracker with dot-stats' shape and none of its identifiers.
+## A statistics tracker with GameSpice Stats' shape and none of its identifiers.
 ## The bridge is duck-typed so a game can hand it something of its own; this exercises that case.
 class FakeTracker extends RefCounted:
 	var schema := FakeSchema.new()

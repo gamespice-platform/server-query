@@ -19,7 +19,7 @@ signal snapshot_rebuilt(snapshot: DotQuerySnapshot)
 
 var server: DotServer = null
 
-## The dot-stats bridge, when one is attached. Optional; see [DotQueryStats].
+## The GameSpice Stats bridge, when one is attached. Optional; see [DotQueryStats].
 var stats: DotQueryStats = null
 
 ## The app's URL segment on the website, which is this game's code name.
@@ -211,7 +211,7 @@ func _build_info() -> Dictionary:
 		"app": effective_app_url(),
 		"folder": _folder(),
 		"players": playing,
-		# Overridden by any provider that knows better. Nothing in dot-server can:
+		# Overridden by any provider that knows better. Nothing in GameSpice Server can:
 		# a bot is a game concept and the server never sees one connect.
 		"bots": 0,
 		# The count A2S has no field for, and the one that tells an operator their
@@ -452,7 +452,7 @@ func sign(body: Dictionary) -> Dictionary:
 
 	# Signed over the body with the auth block absent, so a verifier reproduces it
 	# by removing the same block. Signing a canonicalisation the server then does
-	# not send is the mistake dot-cloud made and shipped.
+	# not send is the mistake GameSpice Cloud made and shipped.
 	var payload := "%d.%s.%s" % [ts, nonce, JSON.stringify(stamped)]
 
 	stamped["auth"] = {

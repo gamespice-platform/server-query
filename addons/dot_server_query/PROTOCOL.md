@@ -53,7 +53,7 @@ protocol off stops it answering without closing the socket, so it comes back wit
 the port moving under whatever was polling it. `query_status` shows both;
 `query_dump` prints the response a querier would get.
 
-**On the game port, behind dot-server's default transport (`DotTransportDual`), both protocols share the transport's UDP socket**: `share_udp_port` registers them on its demux and nothing binds a second socket. Only a UDP transport that does not share (plain ENet), or another process, still holds the port so that the bind fails, and the log says so. Then set `query_port` to a free one — and know that most trackers will not look there.
+**On the game port, behind GameSpice Server's default transport (`DotTransportDual`), both protocols share the transport's UDP socket**: `share_udp_port` registers them on its demux and nothing binds a second socket. Only a UDP transport that does not share (plain ENet), or another process, still holds the port so that the bind fails, and the log says so. Then set `query_port` to a free one — and know that most trackers will not look there.
 
 ---
 
@@ -312,7 +312,7 @@ Governed by `query_player_detail`:
 | `count` | no list; the count is in `info` |
 | `none` | section omitted entirely |
 
-**No setting ever emits an account identifier.** dot-user's whole point is that an
+**No setting ever emits an account identifier.** GameSpice User's whole point is that an
 operator cannot correlate their players across servers; publishing the uid to anyone
 who sends a datagram would undo that from the other direction.
 
@@ -476,7 +476,7 @@ Any object with `_contribute(snapshot)` works, so a game can use a `Node` it alr
 has. Registration is validated when it happens, so a mistyped provider is a startup
 error rather than a section that silently never appears.
 
-**The bot count is the important one.** Nothing in dot-server can know it — a bot is
+**The bot count is the important one.** Nothing in GameSpice Server can know it — a bot is
 a game concept and the server never sees one connect — so it reaches A2S's bot byte,
 DQP's `info.bots` and the backbone stats report only through a provider.
 

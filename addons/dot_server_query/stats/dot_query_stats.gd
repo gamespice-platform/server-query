@@ -3,7 +3,7 @@ class_name DotQueryStats
 extends Node
 
 ## Publishes declared statistics through the query protocol, optionally.
-## Duck-typed (players(), session_values(), schema): naming a [code]DotStats*[/code] class would break parsing without dot-stats.
+## Duck-typed (players(), session_values(), schema): naming a [code]DotStats*[/code] class would break parsing without GameSpice Stats.
 ## Sections: server, game (default on), players (default off; see [member player_key_format]).
 
 const CHANNEL := "query"

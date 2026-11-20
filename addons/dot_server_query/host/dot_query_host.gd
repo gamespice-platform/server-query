@@ -3,7 +3,7 @@ class_name DotQueryHost
 extends Node
 
 ## Plugs the query responders into a [DotServer], and owns their lifetime.
-## dot-server names nothing here; add this to its scene to answer queries.
+## GameSpice Server names nothing here; add this to its scene to answer queries.
 ## Brings up [DotQuerySource], then [DotQueryServer] (binds first, owns a shared socket), then [DotA2SServer].
 
 const CHANNEL := "query"
@@ -30,7 +30,7 @@ const SERVICE := &"dot_query_host"
 ## Where to find or create the A2S listener.
 @export var a2s_ref: DotNodeRef = null
 
-## Where to find the dot-stats bridge. [b]Not created by default[/b] — a server
+## Where to find the GameSpice Stats bridge. [b]Not created by default[/b] — a server
 ## whose game counts nothing should not grow a statistics section.
 @export var stats_ref: DotNodeRef = null
 
@@ -169,7 +169,7 @@ func _build_source() -> DotResult:
 
 	# The server's own query_source hook, so DotModule.add_query_provider and the
 	# builtin commands keep working exactly as they did when this lived inside
-	# dot-server. Duck-typed on that side; a plain assignment on this one.
+	# GameSpice Server. Duck-typed on that side; a plain assignment on this one.
 	server.query_source = source
 
 	return DotResult.success(source)
@@ -264,7 +264,7 @@ func is_open() -> bool:
 
 
 ## Registers the query cvar and the two commands that report on this subsystem.
-## Here rather than in dot-server's builtins, so a server without this addon has no dead `query_status`.
+## Here rather than in GameSpice Server's builtins, so a server without this addon has no dead `query_status`.
 func _register_console() -> void:
 	var console := server.console
 	if console == null:

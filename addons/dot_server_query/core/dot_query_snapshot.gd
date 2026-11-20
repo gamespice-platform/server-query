@@ -66,7 +66,7 @@ var perf: Dictionary = {}
 ## Engine, addon and platform versions. Static for the life of the process.
 var build: Dictionary = {}
 
-## Declared statistics and their server-wide totals, filled by the dot-stats bridge when attached.
+## Declared statistics and their server-wide totals, filled by the GameSpice Stats bridge when attached.
 var stats: Dictionary = {}
 
 ## Per-player statistics for connected players. Off unless an operator enables it; never keyed by account id.

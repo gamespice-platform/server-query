@@ -10,7 +10,7 @@ Everything here lived in `dot-server/addons/dot_server/query/` and was moved out
 
 ## The direction of the dependency is the whole design
 
-dot-server-query names `DotServer`, `DotServerConfig`, `DotClientSession` and `DotConVar` freely: a query responder without a server is meaningless, so a hard dependency there costs nothing. dot-server names **nothing** here. It holds one hook:
+GameSpice Server Query names `DotServer`, `DotServerConfig`, `DotClientSession` and `DotConVar` freely: a query responder without a server is meaningless, so a hard dependency there costs nothing. GameSpice Server names **nothing** here. It holds one hook:
 
 ```gdscript
 func attach_query_host(host: Object) -> DotResult
@@ -50,7 +50,7 @@ Every one is built on every rebuild. **An earlier draft built the expensive ones
 
 The exception is the second rule. **`perf` is excluded from the hash** (`DotQuerySnapshot.VOLATILE_SECTIONS`), because every field in it (frame time, memory, fps) differs on every rebuild. Hashing it would mint a new revision every second and `if_rev` would never once save a byte. `info.uptime` and per-player `duration` and `ping` are erased before hashing for the same reason.
 
-`teams` is read duck-typed from whatever registered as `dot_team_roster`, so dot-team is not named here either; a game with no teams gets an empty section rather than a parse failure.
+`teams` is read duck-typed from whatever registered as `dot_team_roster`, so GameSpice Team is not named here either; a game with no teams gets an empty section rather than a parse failure.
 
 ## `info.signon` is the field a browser needs before it connects
 
@@ -72,21 +72,21 @@ It is the app's **URL segment on the website**: unique, lowercase and already ma
 
 `a2s_game_folder` still wins when an operator has changed it from the shipped default `"dot"`: they meant it. The default is the same string on every server in the family, which makes it useless as a grouping key, so that one case hands the folder to the app slug.
 
-## The dot-stats bridge, and the join that cannot be guessed
+## The GameSpice Stats bridge, and the join that cannot be guessed
 
 `DotQueryStats` answers three different questions, which is the split a querier actually wants: what this **server** has done since it booted, the published stats totalled across everyone on it (**game**), and one row per **player**.
 
 The first two identify nobody and are on by default. The third is off, and **a boolean is not enough to turn it on**.
 
-**Why:** a game chooses its own key for a stats player and nothing in dot-stats records which. This family alone uses `arena-player-%08d`, a bare userid and a per-account string. There is no way to map a connected session to its statistics from here, so `player_key_format` (a printf over the session's userid) or a duck-typed resolver is required as well. Getting it wrong does not throw: it matches nobody and publishes an empty section, which reads as "nobody has done anything" rather than as a misconfiguration, so the host warns at boot when `publish_players` is on with no way to honour it.
+**Why:** a game chooses its own key for a stats player and nothing in GameSpice Stats records which. This family alone uses `arena-player-%08d`, a bare userid and a per-account string. There is no way to map a connected session to its statistics from here, so `player_key_format` (a printf over the session's userid) or a duck-typed resolver is required as well. Getting it wrong does not throw: it matches nobody and publishes an empty section, which reads as "nobody has done anything" rather than as a misconfiguration, so the host warns at boot when `publish_players` is on with no way to honour it.
 
-**The key is never published.** It is matched against and discarded; rows carry the display name and userid the player list already carries. A game keying statistics by account uid would otherwise publish that uid to anyone who sends a datagram, and dot-user's whole point is that an operator cannot correlate players across servers. Undoing that from the query side is no better than undoing it from the login side.
+**The key is never published.** It is matched against and discarded; rows carry the display name and userid the player list already carries. A game keying statistics by account uid would otherwise publish that uid to anyone who sends a datagram, and GameSpice User's whole point is that an operator cannot correlate players across servers. Undoing that from the query side is no better than undoing it from the login side.
 
-Only stats flagged `publish` in the schema appear, on both the totals and the per-player path. dot-stats already draws that line for the backbone report and it is the right line here: a stat a game keeps private from its own backend has no business going out over UDP.
+Only stats flagged `publish` in the schema appear, on both the totals and the per-player path. GameSpice Stats already draws that line for the backbone report and it is the right line here: a stat a game keeps private from its own backend has no business going out over UDP.
 
 ## Deliberately not here
 
-- **A query client.** This answers and does not ask. [dot-browser](../../dot-browser) is the client half, and it is a **second implementation** of the wire format on purpose: its self-test checks it against bytes this encoder produced rather than against itself.
+- **A query client.** This answers and does not ask. [GameSpice Browser](../../dot-browser) is the client half, and it is a **second implementation** of the wire format on purpose: its self-test checks it against bytes this encoder produced rather than against itself.
 - **Delta responses.** `if_rev` answers "unchanged" or resends the whole thing. A patch between two revisions would be smaller again and is not worth the complexity until something is polling enough servers to notice.
-- **A master-server heartbeat.** Nothing announces a server anywhere; a tracker has to be told the address. Both protocols answer once it has been. `sv_lan` lives in dot-server and still does nothing.
+- **A master-server heartbeat.** Nothing announces a server anywhere; a tracker has to be told the address. Both protocols answer once it has been. `sv_lan` lives in GameSpice Server and still does nothing.
 - **Signing on by default.** `query_secret` enables an HMAC over the response body, for a listing service that must know the server really said this rather than somebody forging a busy server to climb a list. Off unless set: a signature nobody checks is cost with no benefit.

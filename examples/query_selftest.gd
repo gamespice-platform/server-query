@@ -131,7 +131,7 @@ func _test_host() -> void:
 		server.query_source == host.source)
 	_check("the host opened its listeners", host.is_open())
 
-	# The hook is duck-typed from dot-server's side, so the only thing it can
+	# The hook is duck-typed from GameSpice Server's side, so the only thing it can
 	# check is the shape. Something without open() must be refused rather than
 	# stored and called later.
 	var refused := server.attach_query_host(RefCounted.new())
@@ -144,7 +144,7 @@ func _test_host() -> void:
 	dummy.free()
 	bare.free()
 
-	# Registered by the host, not by dot-server: a server without this addon
+	# Registered by the host, not by GameSpice Server: a server without this addon
 	# should not offer a command whose only answer is "there is no query listener".
 	_check("query_status is registered",
 		server.console.find_command("query_status") != null)
@@ -569,7 +569,7 @@ func _test_sections() -> void:
 	_check("perf reports a tickrate",
 		int(snap.perf.get("tickrate", 0)) == server.config.tickrate)
 	# No team roster is registered here, so the section is empty rather than
-	# absent-and-erroring. dot-team is duck-typed and most games have no teams.
+	# absent-and-erroring. GameSpice Team is duck-typed and most games have no teams.
 	_check("teams is empty without a roster", snap.teams.is_empty())
 
 	# Asking for a section by name is what a querier does, and an unknown one
@@ -613,7 +613,7 @@ func _test_stats() -> void:
 	_check("server counters exist without a tracker",
 		(source.snapshot(true).stats as Dictionary).has("server"))
 
-	# Duck-typed: this stand-in has the same shape dot-stats' tracker has, and
+	# Duck-typed: this stand-in has the same shape GameSpice Stats' tracker has, and
 	# nothing in the addon names a DotStats* identifier. The real addon is linked
 	# into this project, so the shape is checked against it below.
 	var tracker := FakeTracker.new()
@@ -633,7 +633,7 @@ func _test_stats() -> void:
 		int((stats.get("game", {}) as Dictionary).get("kills", 0)) == 10)
 
 	# A stat the schema does not publish must not leave the server on this path
-	# either. dot-stats already draws that line for the backbone report.
+	# either. GameSpice Stats already draws that line for the backbone report.
 	tracker.add("p-0000000003", {"kills": 1.0, "secret_rating": 99.0})
 	var totals: Dictionary = source.snapshot(true).stats.get("game", {})
 	_check("an unpublished stat is never totalled", not totals.has("secret_rating"))
