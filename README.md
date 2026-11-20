@@ -1,4 +1,4 @@
-[![Server Query - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/253-dot-server-query)
+[![Server Query - GameSpice addon](docs/banner.png)](https://moddingcommunity.com/a/57-gs-server-query)
 
 Lets a game server answer "who is on you, what are you running, and is it worth joining". It speaks two protocols from one snapshot, so they never disagree about the player count.
 
