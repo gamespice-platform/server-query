@@ -7,4 +7,4 @@
 | [a2s.md](a2s.md) | A2S field order, absent fields, the game-specific block, `folder`, what is not emitted |
 | [history.md](history.md) | the bugs, and how each looked |
 
-The wire spec, enough to write a client in any language, is [addons/dot_server_query/PROTOCOL.md](../addons/dot_server_query/PROTOCOL.md).
+The wire spec, enough to write a client in any language, is [addons/gs_server_query/PROTOCOL.md](../addons/gs_server_query/PROTOCOL.md).

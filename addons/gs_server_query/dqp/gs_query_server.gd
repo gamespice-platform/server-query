@@ -4,10 +4,10 @@ extends Node
 
 ## The dot query protocol: sections asked for à la carte. See [GSQueryProtocol] for the wire format.
 ## Every UDP query is challenged with an address-bound cookie first; revisions make polling nearly free.
-## With [member GSServerConfig.query_websocket] on, a browser can use it as JSON. Registered as [code]dot_query_server[/code].
+## With [member GSServerConfig.query_websocket] on, a browser can use it as JSON. Registered as [code]gs_query_server[/code].
 
 const CHANNEL := "query"
-const SERVICE := &"dot_query_server"
+const SERVICE := &"gs_query_server"
 
 ## Most a single querier may ask for in one request: every section plus a few spare, to stop one named hundreds of times.
 const MAX_SECTIONS := 16

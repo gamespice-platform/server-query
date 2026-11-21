@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dotquery0selftest1"]
+[gd_scene load_steps=2 format=3 uid="uid://gsquery0selftest1"]
 
 [ext_resource type="Script" path="res://examples/query_selftest.gd" id="1_q"]
 

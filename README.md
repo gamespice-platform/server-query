@@ -18,7 +18,7 @@ Server-list sites, chat bots and uptime monitors speak A2S, so all of A2S is imp
 ## Install
 
 1. Get [Godot 4.7](https://godotengine.org/download).
-2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/dot_server_query/`, [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/dot_core/` and [GameSpice Server](https://github.com/gamespice-platform/server)'s `addons/dot_server/` into your project and enable dot-server-query in *Project > Project Settings > Plugins*.
+2. Either use [GameSpice Bootstrap](https://github.com/gamespice-platform/bootstrap), which clones every project and links the addons, or copy `addons/gs_server_query/`, [GameSpice Core](https://github.com/gamespice-platform/core)'s `addons/gs_core/` and [GameSpice Server](https://github.com/gamespice-platform/server)'s `addons/gs_server/` into your project and enable gs-server-query in *Project > Project Settings > Plugins*.
 
 [GameSpice Stats](https://github.com/gamespice-platform/stats) is optional.
 
@@ -95,7 +95,7 @@ class FcQuery extends GSQueryProvider:
             "time_left": match_state.seconds_remaining(),
         })
 
-GSRegistry.get_service(&"dot_query_source").add_provider(FcQuery.new())
+GSRegistry.get_service(&"gs_query_source").add_provider(FcQuery.new())
 ```
 
 Only a provider can report the bot count, because the server never sees a bot connect. The map shown in `info.map` is GameSpice Server's `GSGameManager.reported_map()`: the map the game reported with `set_current_map`, or the game's display name. Reporting a map drops the cached snapshot.
@@ -112,7 +112,7 @@ Only a provider can report the bot count, because the server never sees a bot co
 
 ## Protocol
 
-[addons/dot_server_query/PROTOCOL.md](addons/dot_server_query/PROTOCOL.md) is enough to write a client in any language and ends with one in about thirty lines of Python. [GameSpice Browser](https://github.com/gamespice-platform/browser) is the client for a Godot project.
+[addons/gs_server_query/PROTOCOL.md](addons/gs_server_query/PROTOCOL.md) is enough to write a client in any language and ends with one in about thirty lines of Python. [GameSpice Browser](https://github.com/gamespice-platform/browser) is the client for a Godot project.
 
 ## Testing
 

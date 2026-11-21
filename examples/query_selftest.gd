@@ -15,7 +15,7 @@ func _ready() -> void:
 	config.reserved_slots = 2
 	config.tickrate = 30
 	config.rcon_password = ""
-	config.hostname = "dot-server-query self-test"
+	config.hostname = "gs-server-query self-test"
 
 	# Both protocols, one explicit UDP port. This is the shared-socket path: DQP
 	# binds and A2S attaches to it.

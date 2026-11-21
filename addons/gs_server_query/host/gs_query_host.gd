@@ -7,7 +7,7 @@ extends Node
 ## Brings up [GSQuerySource], then [GSQueryServer] (binds first, owns a shared socket), then [GSA2SServer].
 
 const CHANNEL := "query"
-const SERVICE := &"dot_query_host"
+const SERVICE := &"gs_query_host"
 
 ## The server to answer for. Defaults to the one in [GSRegistry]; explicit because a process may run two.
 @export var server_ref: GSNodeRef = null

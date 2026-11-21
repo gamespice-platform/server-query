@@ -2,9 +2,9 @@
 
 The server's side of a server query: the GS query protocol (DQP) and the whole of A2S, answered from one snapshot, on one socket or two.
 
-Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to query. The reasoning is in [docs/](docs/README.md); the wire spec is [PROTOCOL.md](addons/dot_server_query/PROTOCOL.md).
+Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is specific to query. The reasoning is in [docs/](docs/README.md); the wire spec is [PROTOCOL.md](addons/gs_server_query/PROTOCOL.md).
 
-**The distributable is `addons/dot_server_query/`.** It requires GameSpice Core and GameSpice Server, and optionally bridges GameSpice Stats, which is discovered at runtime and named nowhere in the source. The suite wants all three linked (`.gitignore`): linking the real GameSpice Stats is what checks the duck-typed bridge against the thing it describes rather than a mock.
+**The distributable is `addons/gs_server_query/`.** It requires GameSpice Core and GameSpice Server, and optionally bridges GameSpice Stats, which is discovered at runtime and named nowhere in the source. The suite wants all three linked (`.gitignore`): linking the real GameSpice Stats is what checks the duck-typed bridge against the thing it describes rather than a mock.
 
 ## Read before
 
@@ -15,19 +15,19 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | [docs/exposure.md](docs/exposure.md) | the listeners, port sharing, `GSQueryChallenge`, `GSQueryLimiter`, the cache |
 | [docs/a2s.md](docs/a2s.md) | `GSA2SServer` |
 | [docs/history.md](docs/history.md) | the bugs, and how each looked |
-| [PROTOCOL.md](addons/dot_server_query/PROTOCOL.md) | changing anything on the wire |
+| [PROTOCOL.md](addons/gs_server_query/PROTOCOL.md) | changing anything on the wire |
 
 ## Layout
 
 | Path | What |
 | --- | --- |
-| `addons/dot_server_query/PROTOCOL.md` | the wire spec; enough to write a client in any language |
-| `addons/dot_server_query/host/` | `GSQueryHost`: finds a server, fills its hook, owns the listeners, registers the two commands |
-| `addons/dot_server_query/core/` | `GSQueryChallenge` (stateless address-bound cookies), `GSQueryLimiter`, `GSQuerySnapshot`, `GSQueryProvider` (where a game contributes state) |
-| `addons/dot_server_query/source/` | `GSQuerySource`: builds and caches the snapshot; holds the providers |
-| `addons/dot_server_query/dqp/` | `GSQueryProtocol` (header, flags, fragments, gzip), `GSQueryServer` (UDP, and WebSocket for browsers) |
-| `addons/dot_server_query/a2s/` | `GSA2SServer`: A2S, all of it; off by default |
-| `addons/dot_server_query/stats/` | `GSQueryStats`: the GameSpice Stats bridge; names no `GSStats*` identifier |
+| `addons/gs_server_query/PROTOCOL.md` | the wire spec; enough to write a client in any language |
+| `addons/gs_server_query/host/` | `GSQueryHost`: finds a server, fills its hook, owns the listeners, registers the two commands |
+| `addons/gs_server_query/core/` | `GSQueryChallenge` (stateless address-bound cookies), `GSQueryLimiter`, `GSQuerySnapshot`, `GSQueryProvider` (where a game contributes state) |
+| `addons/gs_server_query/source/` | `GSQuerySource`: builds and caches the snapshot; holds the providers |
+| `addons/gs_server_query/dqp/` | `GSQueryProtocol` (header, flags, fragments, gzip), `GSQueryServer` (UDP, and WebSocket for browsers) |
+| `addons/gs_server_query/a2s/` | `GSA2SServer`: A2S, all of it; off by default |
+| `addons/gs_server_query/stats/` | `GSQueryStats`: the GameSpice Stats bridge; names no `GSStats*` identifier |
 | `examples/query_selftest.tscn` | the suite; `-- --serve` runs it as a real server instead |
 
 ## Running and testing
@@ -42,8 +42,8 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 
 - GameSpice Server names nothing here: one hook, `attach_query_host(host: Object)`, and every query field on `GSServer` is `Object` reached by `.call`. Naming a class from here in GameSpice Server would make this addon mandatory. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
 - The query settings (`query_*`, `a2s_*`, `sv_query`, `sv_a2s`, `sv_query_players`) stay on `GSServerConfig` so operators' config files keep working; settings that exist only here are node exports. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
-- `GSQueryHost._ready` waits for `dot_server` on the registry path, because a host beside a server is ready before the server registers. Both boot orders are in the suite. [design](docs/design.md#the-boot-handshake-in-both-directions)
-- GameSpice Team (`dot_team_roster`) and GameSpice Stats are duck-typed; never name their classes. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
+- `GSQueryHost._ready` waits for `gs_server` on the registry path, because a host beside a server is ready before the server registers. Both boot orders are in the suite. [design](docs/design.md#the-boot-handshake-in-both-directions)
+- GameSpice Team (`gs_team_roster`) and GameSpice Stats are duck-typed; never name their classes. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
 
 **The snapshot**
 
@@ -51,7 +51,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 - `perf`, `info.uptime` and per-player `duration`/`ping` are out of the hash (`VOLATILE_SECTIONS`), or `if_rev` never saves a byte. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
 - `info.signon` belongs in `info`, the section every listing row fetches, so a browser knows before connecting. [design](docs/design.md#infosignon-is-the-field-a-browser-needs-before-it-connects)
 - `info.app` (and A2S `folder`) is display-only; nothing that must be sure of a server's app may read it. [design](docs/design.md#the-app-slug-is-display-only-and-says-so-everywhere)
-- Per-player stats need `player_key_format` or a resolver as well as `publish_players`; the stats key is never published; only `publish` stats go out. [design](docs/design.md#the-dot-stats-bridge-and-the-join-that-cannot-be-guessed)
+- Per-player stats need `player_key_format` or a resolver as well as `publish_players`; the stats key is never published; only `publish` stats go out. [design](docs/design.md#the-gs-stats-bridge-and-the-join-that-cannot-be-guessed)
 
 **Exposure**
 

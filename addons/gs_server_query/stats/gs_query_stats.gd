@@ -7,7 +7,7 @@ extends Node
 ## Sections: server, game (default on), players (default off; see [member player_key_format]).
 
 const CHANNEL := "query"
-const SERVICE := &"dot_query_stats"
+const SERVICE := &"gs_query_stats"
 
 ## Ceiling on rows in the player_stats section; per-player rows are much larger than player list entries.
 const MAX_PLAYER_ROWS := 64

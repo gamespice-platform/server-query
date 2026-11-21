@@ -3,14 +3,14 @@ extends EditorPlugin
 
 ## Editor entry point for GameSpice Server Query. Registers inspector types only; no autoloads.
 
-const _ICON := "res://addons/dot_server_query/icon_placeholder.svg"
+const _ICON := "res://addons/gs_server_query/icon_placeholder.svg"
 
 const _TYPES := [
-	["GSQueryHost", "Node", "res://addons/dot_server_query/host/dot_query_host.gd"],
-	["GSQuerySource", "Node", "res://addons/dot_server_query/source/dot_query_source.gd"],
-	["GSQueryServer", "Node", "res://addons/dot_server_query/dqp/dot_query_server.gd"],
-	["GSA2SServer", "Node", "res://addons/dot_server_query/a2s/dot_a2s_server.gd"],
-	["GSQueryStats", "Node", "res://addons/dot_server_query/stats/dot_query_stats.gd"],
+	["GSQueryHost", "Node", "res://addons/gs_server_query/host/gs_query_host.gd"],
+	["GSQuerySource", "Node", "res://addons/gs_server_query/source/gs_query_source.gd"],
+	["GSQueryServer", "Node", "res://addons/gs_server_query/dqp/gs_query_server.gd"],
+	["GSA2SServer", "Node", "res://addons/gs_server_query/a2s/gs_a2s_server.gd"],
+	["GSQueryStats", "Node", "res://addons/gs_server_query/stats/gs_query_stats.gd"],
 ]
 
 

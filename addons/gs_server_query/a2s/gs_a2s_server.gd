@@ -7,7 +7,7 @@ extends Node
 ## Every request is challenged, [code]A2S_INFO[/code] included, against reflection. See [GSQueryChallenge].
 
 const CHANNEL := "a2s"
-const SERVICE := &"dot_a2s_server"
+const SERVICE := &"gs_a2s_server"
 
 ## Single-packet header: int32 -1.
 const HEADER_SINGLE := 0xFFFFFFFF

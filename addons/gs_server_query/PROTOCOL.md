@@ -469,7 +469,7 @@ class FcQuery extends GSQueryProvider:
 
 var provider := FcQuery.new()
 provider.match_state = state
-GSRegistry.get_service(&"dot_query_source").add_provider(provider)
+GSRegistry.get_service(&"gs_query_source").add_provider(provider)
 ```
 
 Any object with `_contribute(snapshot)` works, so a game can use a `Node` it already

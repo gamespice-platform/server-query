@@ -4,7 +4,7 @@ Where this addon sits, how it attaches to a server, and what a snapshot contains
 
 ## Why it is its own addon
 
-Everything here lived in `dot-server/addons/dot_server/query/` and was moved out whole: the protocols, the snapshot, the challenge, the provider API, the two console commands and the entire self-test. Nothing about either wire format changed in the move.
+Everything here lived in `gs-server/addons/gs_server/query/` and was moved out whole: the protocols, the snapshot, the challenge, the provider API, the two console commands and the entire self-test. Nothing about either wire format changed in the move.
 
 **It moved because answering a query is a concern most servers never switch on**, and because it is large: two protocols, a challenge scheme, a rate limiter and a WebSocket listener is more code than several addons in this family have in total. A server that will never be listed anywhere should not carry it.
 
@@ -16,16 +16,16 @@ GameSpice Server Query names `GSServer`, `GSServerConfig`, `GSClientSession` and
 func attach_query_host(host: Object) -> GSResult
 ```
 
-`query_host`, `query_source`, `query` and `a2s` on `GSServer` are all typed `Object` and reached with `.call(...)`. That is not fussiness: **a script mentioning a `class_name` the project does not have fails to parse and takes every script referencing it down with it.** `GSQueryHost` named once in dot-server would make this repository mandatory for anything that so much as boots a server. Same reasoning as `GSChatRelay` in dot-server and `GSWeaponLoadoutBridge` in dot-weapon.
+`query_host`, `query_source`, `query` and `a2s` on `GSServer` are all typed `Object` and reached with `.call(...)`. That is not fussiness: **a script mentioning a `class_name` the project does not have fails to parse and takes every script referencing it down with it.** `GSQueryHost` named once in gs-server would make this repository mandatory for anything that so much as boots a server. Same reasoning as `GSChatRelay` in gs-server and `GSWeaponLoadoutBridge` in gs-weapon.
 
-**The configuration stayed in dot-server.** `query_enabled`, `a2s_enabled`, `query_port`, `a2s_port`, `query_bind_address`, `query_player_detail`, `query_secret` and the rest are still `GSServerConfig` fields, and `sv_query`, `sv_a2s` and `sv_query_players` are still registered there before `server.cfg` runs. They are plain bools, ints and strings naming no class, so every operator's `server.yml` keeps working and the layering promise is unbroken. Moving them would have broken every deployment's config file to no purpose. New settings that only exist here (the app slug, the A2S extra-data fields, what the stats bridge publishes) are exports on the nodes instead.
+**The configuration stayed in gs-server.** `query_enabled`, `a2s_enabled`, `query_port`, `a2s_port`, `query_bind_address`, `query_player_detail`, `query_secret` and the rest are still `GSServerConfig` fields, and `sv_query`, `sv_a2s` and `sv_query_players` are still registered there before `server.cfg` runs. They are plain bools, ints and strings naming no class, so every operator's `server.yml` keeps working and the layering promise is unbroken. Moving them would have broken every deployment's config file to no purpose. New settings that only exist here (the app slug, the A2S extra-data fields, what the stats bridge publishes) are exports on the nodes instead.
 
 ## The boot handshake, in both directions
 
 A host can be ready before its server, or after it. Both happen, and both had to work:
 
 ```
-host._ready()  ->  server not registered yet  ->  await_service("dot_server")
+host._ready()  ->  server not registered yet  ->  await_service("gs_server")
                                               ->  attach_query_host(self)
                                               ->  server is IDLE, stored
 server.boot()  ->  ... listener opens ... RUNNING
@@ -50,11 +50,11 @@ Every one is built on every rebuild. **An earlier draft built the expensive ones
 
 The exception is the second rule. **`perf` is excluded from the hash** (`GSQuerySnapshot.VOLATILE_SECTIONS`), because every field in it (frame time, memory, fps) differs on every rebuild. Hashing it would mint a new revision every second and `if_rev` would never once save a byte. `info.uptime` and per-player `duration` and `ping` are erased before hashing for the same reason.
 
-`teams` is read duck-typed from whatever registered as `dot_team_roster`, so GameSpice Team is not named here either; a game with no teams gets an empty section rather than a parse failure.
+`teams` is read duck-typed from whatever registered as `gs_team_roster`, so GameSpice Team is not named here either; a game with no teams gets an empty section rather than a parse failure.
 
 ## `info.signon` is the field a browser needs before it connects
 
-The RPC surface both ends of a join have to agree on, as twelve characters: `GSSignon.revision([GSServer, GSChatManager])`, derived from the `@rpc` method names Godot itself checksums. dot-server's [docs/signon.md](../../dot-server/docs/signon.md#the-signon-revision-dotsignon) explains why that comparison exists and what it looks like when it fails.
+The RPC surface both ends of a join have to agree on, as twelve characters: `GSSignon.revision([GSServer, GSChatManager])`, derived from the `@rpc` method names Godot itself checksums. gs-server's [docs/signon.md](../../gs-server/docs/signon.md#the-signon-revision-dotsignon) explains why that comparison exists and what it looks like when it fails.
 
 **It is in `info` rather than in `rules`, and that is the whole point of putting it here at all.** A client whose build declares a different set of those methods cannot complete a join with this server: Godot refuses to confirm the path, the connection opens and then goes quiet, and the player is eventually told they timed out. The only way to spare them that is to know *before connecting*, which means the answer has to be in the cheapest section, the one a listing already fetches for every row, not in the one you get after clicking a server. That is what makes "this server needs a different build, open that one" possible for a server browser or a web loader.
 
@@ -86,7 +86,7 @@ Only stats flagged `publish` in the schema appear, on both the totals and the pe
 
 ## Deliberately not here
 
-- **A query client.** This answers and does not ask. [GameSpice Browser](../../dot-browser) is the client half, and it is a **second implementation** of the wire format on purpose: its self-test checks it against bytes this encoder produced rather than against itself.
+- **A query client.** This answers and does not ask. [GameSpice Browser](../../gs-browser) is the client half, and it is a **second implementation** of the wire format on purpose: its self-test checks it against bytes this encoder produced rather than against itself.
 - **Delta responses.** `if_rev` answers "unchanged" or resends the whole thing. A patch between two revisions would be smaller again and is not worth the complexity until something is polling enough servers to notice.
 - **A master-server heartbeat.** Nothing announces a server anywhere; a tracker has to be told the address. Both protocols answer once it has been. `sv_lan` lives in GameSpice Server and still does nothing.
 - **Signing on by default.** `query_secret` enables an HMAC over the response body, for a listing service that must know the server really said this rather than somebody forging a busy server to climb a list. Off unless set: a signature nobody checks is cost with no benefit.

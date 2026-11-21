@@ -7,7 +7,7 @@ extends Node
 ## stops small packets from making the server walk every session and cvar per query.
 
 const CHANNEL := "query"
-const SERVICE := &"dot_query_source"
+const SERVICE := &"gs_query_source"
 
 ## Player detail policies, in decreasing order of what they reveal.
 const DETAIL_FULL := "full"
@@ -356,7 +356,7 @@ static func _rule_visible(cvar: GSConVar, config: GSServerConfig) -> bool:
 ## Duck-typed: naming a missing class_name would fail to parse and stop the server answering queries.
 ## A provider may replace this by writing [code]teams[/code] into the game section.
 func _build_teams() -> Dictionary:
-	var roster := GSRegistry.get_service(&"dot_team_roster")
+	var roster := GSRegistry.get_service(&"gs_team_roster")
 	if roster == null or not is_instance_valid(roster):
 		return {}
 	if not roster.has_method("counts"):
