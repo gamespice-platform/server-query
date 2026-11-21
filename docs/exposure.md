@@ -6,7 +6,7 @@ A query responder is a UDP service anyone on the internet can talk to without a 
 
 The two protocols are told apart by their first four bytes (`FF FF FF FF` is A2S, `DQP1` is not), so both can answer on one UDP port. That is not a trick worth admiring for its own sake: **the game port is the only port a tracker will try**, and two listeners cannot bind one UDP port.
 
-So `DotQueryServer` binds and `DotA2SServer` attaches to it, sharing one challenge secret so `query_status` shows one window rather than two that expire at different times. Different ports and they bind separately; `DotA2SServer.open()` is the path that is not taken when they share.
+So `GSQueryServer` binds and `GSA2SServer` attaches to it, sharing one challenge secret so `query_status` shows one window rather than two that expire at different times. Different ports and they bind separately; `GSA2SServer.open()` is the path that is not taken when they share.
 
 **When the game's transport already owns the UDP port** (ENet behind GameSpice Server's demux, the dual-stack default), neither listener binds: each registers on the server with `share_udp_port(port, claims, handler)` and answers the datagrams its claim test accepts. The claim test runs on every ENet packet too, so the cheap byte test goes first. `close()` calls `unshare_udp_port`. Only when the port is held by something that will not share does the bind fail, and `_bind_advice` then says so, plus the part an operator needs to hear: set a different port, and know most trackers will not look there.
 
@@ -27,9 +27,9 @@ UDP source addresses are forged trivially and a query is a small request produci
 
 ## The rate limiter is bounded too
 
-Both listeners limit by source address before the HMAC, which is the right order, but that key is an address nobody has proved. GameSpice Core's `DotRateLimiter` kept one bucket per key and its sweep never evicted a key that had sent one packet, so a spoofed flood grew the table by one entry per datagram for the life of the process.
+Both listeners limit by source address before the HMAC, which is the right order, but that key is an address nobody has proved. GameSpice Core's `GSRateLimiter` kept one bucket per key and its sweep never evicted a key that had sent one packet, so a spoofed flood grew the table by one entry per datagram for the life of the process.
 
-`DotQueryLimiter` (the subclass both listeners use) drops refilled buckets (lossless: a refilled bucket is no bucket) and, past `max_tracked` (16,384) addresses, sends unknown ones to one shared bucket rather than refusing them, so a flood cannot lock new queriers out either. `describe()` reports it under `limiter`.
+`GSQueryLimiter` (the subclass both listeners use) drops refilled buckets (lossless: a refilled bucket is no bucket) and, past `max_tracked` (16,384) addresses, sends unknown ones to one shared bucket rather than refusing them, so a flood cannot lock new queriers out either. `describe()` reports it under `limiter`.
 
 ## The snapshot cache is a security control, not an optimisation
 

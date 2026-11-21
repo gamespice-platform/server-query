@@ -10,15 +10,15 @@ Everything here lived in `dot-server/addons/dot_server/query/` and was moved out
 
 ## The direction of the dependency is the whole design
 
-GameSpice Server Query names `DotServer`, `DotServerConfig`, `DotClientSession` and `DotConVar` freely: a query responder without a server is meaningless, so a hard dependency there costs nothing. GameSpice Server names **nothing** here. It holds one hook:
+GameSpice Server Query names `GSServer`, `GSServerConfig`, `GSClientSession` and `GSConVar` freely: a query responder without a server is meaningless, so a hard dependency there costs nothing. GameSpice Server names **nothing** here. It holds one hook:
 
 ```gdscript
-func attach_query_host(host: Object) -> DotResult
+func attach_query_host(host: Object) -> GSResult
 ```
 
-`query_host`, `query_source`, `query` and `a2s` on `DotServer` are all typed `Object` and reached with `.call(...)`. That is not fussiness: **a script mentioning a `class_name` the project does not have fails to parse and takes every script referencing it down with it.** `DotQueryHost` named once in dot-server would make this repository mandatory for anything that so much as boots a server. Same reasoning as `DotChatRelay` in dot-server and `DotWeaponLoadoutBridge` in dot-weapon.
+`query_host`, `query_source`, `query` and `a2s` on `GSServer` are all typed `Object` and reached with `.call(...)`. That is not fussiness: **a script mentioning a `class_name` the project does not have fails to parse and takes every script referencing it down with it.** `GSQueryHost` named once in dot-server would make this repository mandatory for anything that so much as boots a server. Same reasoning as `GSChatRelay` in dot-server and `GSWeaponLoadoutBridge` in dot-weapon.
 
-**The configuration stayed in dot-server.** `query_enabled`, `a2s_enabled`, `query_port`, `a2s_port`, `query_bind_address`, `query_player_detail`, `query_secret` and the rest are still `DotServerConfig` fields, and `sv_query`, `sv_a2s` and `sv_query_players` are still registered there before `server.cfg` runs. They are plain bools, ints and strings naming no class, so every operator's `server.yml` keeps working and the layering promise is unbroken. Moving them would have broken every deployment's config file to no purpose. New settings that only exist here (the app slug, the A2S extra-data fields, what the stats bridge publishes) are exports on the nodes instead.
+**The configuration stayed in dot-server.** `query_enabled`, `a2s_enabled`, `query_port`, `a2s_port`, `query_bind_address`, `query_player_detail`, `query_secret` and the rest are still `GSServerConfig` fields, and `sv_query`, `sv_a2s` and `sv_query_players` are still registered there before `server.cfg` runs. They are plain bools, ints and strings naming no class, so every operator's `server.yml` keeps working and the layering promise is unbroken. Moving them would have broken every deployment's config file to no purpose. New settings that only exist here (the app slug, the A2S extra-data fields, what the stats bridge publishes) are exports on the nodes instead.
 
 ## The boot handshake, in both directions
 
@@ -38,7 +38,7 @@ host._ready()  ->  attach_query_host(self)
                                               ->  server is RUNNING, open() now
 ```
 
-**The first case is the ordinary one and it is the one that would have been missed.** A host placed in a scene beside a server is ready *before* that server has booted, and a server registers itself part-way through `boot()`, so the first lookup legitimately finds nothing. Giving up there produces a server that comes up perfectly and never answers a query, with nothing in the log to say why. `DotQueryHost._ready` waits, and only on the registry path: a ref naming a path or a node resolves on the first try, and waiting on one that cannot appear later would just delay the error by ten seconds.
+**The first case is the ordinary one and it is the one that would have been missed.** A host placed in a scene beside a server is ready *before* that server has booted, and a server registers itself part-way through `boot()`, so the first lookup legitimately finds nothing. Giving up there produces a server that comes up perfectly and never answers a query, with nothing in the log to say why. `GSQueryHost._ready` waits, and only on the registry path: a ref naming a path or a node resolves on the first try, and waiting on one that cannot appear later would just delay the error by ten seconds.
 
 Both orders are in the suite. `game-fatal-contact` uses a path ref and attaches before boot; `game-airdrift` uses the registry default and attaches after.
 
@@ -48,13 +48,13 @@ Both orders are in the suite. `game-fatal-contact` uses a path ref and attaches 
 
 Every one is built on every rebuild. **An earlier draft built the expensive ones only when asked for, and that was wrong**: the revision is derived from a hash of the content, so a snapshot built without `teams` and one built with it would hash differently, and two queriers asking for different sections would be told different revisions for the same server state. Conditional polling would then be worse than useless: it would report changes that had not happened. Build everything, hash everything, and the revision means one thing.
 
-The exception is the second rule. **`perf` is excluded from the hash** (`DotQuerySnapshot.VOLATILE_SECTIONS`), because every field in it (frame time, memory, fps) differs on every rebuild. Hashing it would mint a new revision every second and `if_rev` would never once save a byte. `info.uptime` and per-player `duration` and `ping` are erased before hashing for the same reason.
+The exception is the second rule. **`perf` is excluded from the hash** (`GSQuerySnapshot.VOLATILE_SECTIONS`), because every field in it (frame time, memory, fps) differs on every rebuild. Hashing it would mint a new revision every second and `if_rev` would never once save a byte. `info.uptime` and per-player `duration` and `ping` are erased before hashing for the same reason.
 
 `teams` is read duck-typed from whatever registered as `dot_team_roster`, so GameSpice Team is not named here either; a game with no teams gets an empty section rather than a parse failure.
 
 ## `info.signon` is the field a browser needs before it connects
 
-The RPC surface both ends of a join have to agree on, as twelve characters: `DotSignon.revision([DotServer, DotChatManager])`, derived from the `@rpc` method names Godot itself checksums. dot-server's [docs/signon.md](../../dot-server/docs/signon.md#the-signon-revision-dotsignon) explains why that comparison exists and what it looks like when it fails.
+The RPC surface both ends of a join have to agree on, as twelve characters: `GSSignon.revision([GSServer, GSChatManager])`, derived from the `@rpc` method names Godot itself checksums. dot-server's [docs/signon.md](../../dot-server/docs/signon.md#the-signon-revision-dotsignon) explains why that comparison exists and what it looks like when it fails.
 
 **It is in `info` rather than in `rules`, and that is the whole point of putting it here at all.** A client whose build declares a different set of those methods cannot complete a join with this server: Godot refuses to confirm the path, the connection opens and then goes quiet, and the player is eventually told they timed out. The only way to spare them that is to know *before connecting*, which means the answer has to be in the cheapest section, the one a listing already fetches for every row, not in the one you get after clicking a server. That is what makes "this server needs a different build, open that one" possible for a server browser or a web loader.
 
@@ -74,7 +74,7 @@ It is the app's **URL segment on the website**: unique, lowercase and already ma
 
 ## The GameSpice Stats bridge, and the join that cannot be guessed
 
-`DotQueryStats` answers three different questions, which is the split a querier actually wants: what this **server** has done since it booted, the published stats totalled across everyone on it (**game**), and one row per **player**.
+`GSQueryStats` answers three different questions, which is the split a querier actually wants: what this **server** has done since it booted, the published stats totalled across everyone on it (**game**), and one row per **player**.
 
 The first two identify nobody and are on by default. The third is off, and **a boolean is not enough to turn it on**.
 

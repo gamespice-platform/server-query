@@ -1,4 +1,4 @@
-class_name DotQueryProtocol
+class_name GSQueryProtocol
 extends RefCounted
 
 ## The dot query protocol (DQP) wire format: a fixed little-endian header, then JSON (optionally gzip).
@@ -62,10 +62,10 @@ static func looks_like_dqp(data: PackedByteArray) -> bool:
 ## Reads a datagram's header, and its body when it carries one.
 ## Returns [code]type, flags, txn, response_id, fragment_count, fragment_index, challenge, payload[/code]
 ## and, for a JSON payload that parsed, [code]body[/code].
-static func parse(data: PackedByteArray) -> DotResult:
+static func parse(data: PackedByteArray) -> GSResult:
 	if not looks_like_dqp(data):
-		return DotResult.fail(
-			DotError.CODE_PARSE, "Not a dot query packet."
+		return GSResult.fail(
+			GSError.CODE_PARSE, "Not a dot query packet."
 		)
 
 	var payload := data.slice(HEADER_BYTES)
@@ -74,8 +74,8 @@ static func parse(data: PackedByteArray) -> DotResult:
 
 	if (flags & FLAG_GZIP) and not (type & 0x80):
 		# Refused before decompressing: a compressed request is a broken client or a zip bomb.
-		return DotResult.fail(
-			DotError.CODE_INVALID, "Requests are not compressed."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "Requests are not compressed."
 		)
 
 	# A fragment is a slice of a compressed whole; gunzipping or parsing it before reassemble() logs engine errors.
@@ -100,7 +100,7 @@ static func parse(data: PackedByteArray) -> DotResult:
 
 	if payload.is_empty() or is_fragment:
 		out["body"] = {}
-		return DotResult.success(out)
+		return GSResult.success(out)
 
 	var text := payload.get_string_from_utf8()
 	var parsed: Variant = JSON.parse_string(text)
@@ -110,35 +110,35 @@ static func parse(data: PackedByteArray) -> DotResult:
 		# not an object is a protocol violation, not a transport failure.
 		out["body"] = {}
 		out["body_error"] = "payload is not a JSON object"
-		return DotResult.success(out)
+		return GSResult.success(out)
 
 	out["body"] = parsed as Dictionary
-	return DotResult.success(out)
+	return GSResult.success(out)
 
 
 ## Validates a parsed packet as a request a server should act on.
-static func check_request(packet: Dictionary) -> DotResult:
+static func check_request(packet: Dictionary) -> GSResult:
 	var type := int(packet.get("type", 0))
 
 	if type & 0x80:
 		# A response arriving on a listening socket is either a reflected packet
 		# from someone else's attack or a confused client. Never answered: doing so
 		# is how a server becomes one leg of a reflection loop.
-		return DotResult.fail(
-			DotError.CODE_INVALID, "That is a response, not a request."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "That is a response, not a request."
 		)
 
 	if type != TYPE_QUERY and type != TYPE_CHALLENGE_REQUEST and type != TYPE_PING:
-		return DotResult.fail(
-			DotError.CODE_VERSION, "Unknown request type %d." % type
+		return GSResult.fail(
+			GSError.CODE_VERSION, "Unknown request type %d." % type
 		)
 
 	if int(packet.get("fragment_count", 1)) != 1:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "Requests are never fragmented."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "Requests are never fragmented."
 		)
 
-	return DotResult.success(type)
+	return GSResult.success(type)
 
 
 ## Encodes a JSON body, compressing it when allowed and worthwhile.
@@ -177,9 +177,9 @@ static func build(
 		flags |= FLAG_FRAGMENTED
 
 	if total > MAX_FRAGMENTS:
-		# Clamping truncates the payload into an unparseable body. DotQueryServer refuses oversized
+		# Clamping truncates the payload into an unparseable body. GSQueryServer refuses oversized
 		# responses before this, so reaching it warns rather than looking like packet loss.
-		DotLog.warn(
+		GSLog.warn(
 			"query",
 			"a response exceeded the fragment ceiling and was truncated",
 			{"bytes": payload.size(), "fragments": total, "ceiling": MAX_FRAGMENTS}
@@ -241,9 +241,9 @@ static func build_request(
 
 ## Reassembles a complete response from its datagrams, in any order, and returns the parsed body.
 ## Fragments of different responses are rejected rather than blended into a body that parses wrongly.
-static func reassemble(fragments: Array) -> DotResult:
+static func reassemble(fragments: Array) -> GSResult:
 	if fragments.is_empty():
-		return DotResult.fail(DotError.CODE_PARSE, "No fragments.")
+		return GSResult.fail(GSError.CODE_PARSE, "No fragments.")
 
 	var first := parse(fragments[0] as PackedByteArray)
 	if not first.ok:
@@ -254,7 +254,7 @@ static func reassemble(fragments: Array) -> DotResult:
 	var response_id := int(head["response_id"])
 
 	if total == 1:
-		return DotResult.success(head.get("body", {}))
+		return GSResult.success(head.get("body", {}))
 
 	var chunks: Dictionary = {}
 	var flags := 0
@@ -275,8 +275,8 @@ static func reassemble(fragments: Array) -> DotResult:
 		chunks[int(data.decode_u16(16))] = data.slice(HEADER_BYTES)
 
 	if chunks.size() != total:
-		return DotResult.fail(
-			DotError.CODE_TIMEOUT,
+		return GSResult.fail(
+			GSError.CODE_TIMEOUT,
 			"Incomplete response: %d of %d fragments." % [chunks.size(), total]
 		)
 
@@ -292,16 +292,16 @@ static func reassemble(fragments: Array) -> DotResult:
 
 	var parsed: Variant = JSON.parse_string(payload.get_string_from_utf8())
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
-		return DotResult.fail(
-			DotError.CODE_PARSE, "Reassembled payload is not a JSON object."
+		return GSResult.fail(
+			GSError.CODE_PARSE, "Reassembled payload is not a JSON object."
 		)
 
-	return DotResult.success(parsed as Dictionary)
+	return GSResult.success(parsed as Dictionary)
 
 
-static func _gunzip(payload: PackedByteArray) -> DotResult:
+static func _gunzip(payload: PackedByteArray) -> GSResult:
 	if payload.is_empty():
-		return DotResult.success(payload)
+		return GSResult.success(payload)
 
 	# decompress_dynamic rather than decompress: the uncompressed size is not on
 	# the wire, and a bound is required so a hostile payload cannot be a zip bomb.
@@ -310,13 +310,13 @@ static func _gunzip(payload: PackedByteArray) -> DotResult:
 	)
 
 	if inflated.is_empty():
-		return DotResult.fail(
-			DotError.CODE_PARSE,
+		return GSResult.fail(
+			GSError.CODE_PARSE,
 			"Could not decompress the payload.",
 			"claimed gzip, %d bytes" % payload.size()
 		)
 
-	return DotResult.success(inflated)
+	return GSResult.success(inflated)
 
 
 static func type_name(type: int) -> String:

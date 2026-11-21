@@ -1,9 +1,9 @@
 @tool
-class_name DotQuerySource
+class_name GSQuerySource
 extends Node
 
 ## Builds the snapshot both query protocols answer from, and caches it.
-## The cache is a security control: rebuilding at most once per [member DotServerConfig.query_cache_sec]
+## The cache is a security control: rebuilding at most once per [member GSServerConfig.query_cache_sec]
 ## stops small packets from making the server walk every session and cvar per query.
 
 const CHANNEL := "query"
@@ -15,62 +15,62 @@ const DETAIL_NAMES := "names"
 const DETAIL_COUNT := "count"
 const DETAIL_NONE := "none"
 
-signal snapshot_rebuilt(snapshot: DotQuerySnapshot)
+signal snapshot_rebuilt(snapshot: GSQuerySnapshot)
 
-var server: DotServer = null
+var server: GSServer = null
 
-## The GameSpice Stats bridge, when one is attached. Optional; see [DotQueryStats].
-var stats: DotQueryStats = null
+## The GameSpice Stats bridge, when one is attached. Optional; see [GSQueryStats].
+var stats: GSQueryStats = null
 
 ## The app's URL segment on the website, which is this game's code name.
 ## Display only and forgeable: nothing may treat it as proof of which app a server belongs to.
-## Set through [member DotQueryHost.app_url]. Falls back to the running game's id.
+## Set through [member GSQueryHost.app_url]. Falls back to the running game's id.
 var app_url: String = ""
 
 ## Registered providers, in registration order.
 var _providers: Array[Object] = []
 
-var _snapshot: DotQuerySnapshot = null
+var _snapshot: GSQuerySnapshot = null
 var _built_ms: int = 0
 var _rev: int = 0
 var _last_etag: String = ""
 
 
-func setup(p_server: DotServer) -> void:
+func setup(p_server: GSServer) -> void:
 	server = p_server
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 
 
 func _exit_tree() -> void:
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
 ## Registers a provider. Validated now so a mistake is a startup error.
-func add_provider(provider: Object) -> DotResult:
-	var valid := DotQueryProvider.validate(provider)
+func add_provider(provider: Object) -> GSResult:
+	var valid := GSQueryProvider.validate(provider)
 	if not valid.ok:
-		DotLog.error(
+		GSLog.error(
 			CHANNEL, "refused a query provider", {"detail": valid.error.message}
 		)
 		return valid
 
 	if _providers.has(provider):
-		return DotResult.fail(
-			DotError.CODE_STATE,
+		return GSResult.fail(
+			GSError.CODE_STATE,
 			"That query provider is already registered.",
-			DotQueryProvider.name_of(provider)
+			GSQueryProvider.name_of(provider)
 		)
 
 	_providers.append(provider)
 	invalidate()
 
-	DotLog.debug(
+	GSLog.debug(
 		CHANNEL,
 		"query provider added",
-		{"provider": DotQueryProvider.name_of(provider)}
+		{"provider": GSQueryProvider.name_of(provider)}
 	)
 
-	return DotResult.success(provider)
+	return GSResult.success(provider)
 
 
 func remove_provider(provider: Object) -> void:
@@ -83,12 +83,12 @@ func remove_provider(provider: Object) -> void:
 func provider_names() -> PackedStringArray:
 	var out := PackedStringArray()
 	for provider in _providers:
-		out.append(DotQueryProvider.name_of(provider))
+		out.append(GSQueryProvider.name_of(provider))
 	return out
 
 
 ## The current snapshot, rebuilding it if the cache has expired.
-func snapshot(force: bool = false) -> DotQuerySnapshot:
+func snapshot(force: bool = false) -> GSQuerySnapshot:
 	var now := Time.get_ticks_msec()
 	var cache_ms := int(maxf(0.0, _config().query_cache_sec) * 1000.0)
 
@@ -118,8 +118,8 @@ func note_query() -> void:
 		stats.note_query()
 
 
-func _build() -> DotQuerySnapshot:
-	var snap := DotQuerySnapshot.new()
+func _build() -> GSQuerySnapshot:
+	var snap := GSQuerySnapshot.new()
 
 	snap.info = _build_info()
 	snap.players = _build_players(snap)
@@ -137,7 +137,7 @@ func _build() -> DotQuerySnapshot:
 		# Each provider is isolated and a freed one skipped, so one bad module cannot kill the listener.
 		if provider == null or not is_instance_valid(provider):
 			continue
-		DotQueryProvider.contribute_to(provider, snap)
+		GSQueryProvider.contribute_to(provider, snap)
 
 	_stamp_revision(snap)
 	return snap
@@ -145,7 +145,7 @@ func _build() -> DotQuerySnapshot:
 
 ## Assigns the revision, bumping it only when something meaningful changed.
 ## Volatile fields (uptime, timers) are left out of the hash, or conditional polling would never save a byte.
-func _stamp_revision(snap: DotQuerySnapshot) -> void:
+func _stamp_revision(snap: GSQuerySnapshot) -> void:
 	var stable_info := snap.info.duplicate(true)
 	stable_info.erase("uptime")
 
@@ -156,8 +156,8 @@ func _stamp_revision(snap: DotQuerySnapshot) -> void:
 		player.erase("ping")
 		stable_players.append(player)
 
-	# perf is absent by name because all of it differs on every rebuild (DotQuerySnapshot.VOLATILE_SECTIONS).
-	var etag := DotHash.sha256_text(JSON.stringify({
+	# perf is absent by name because all of it differs on every rebuild (GSQuerySnapshot.VOLATILE_SECTIONS).
+	var etag := GSHash.sha256_text(JSON.stringify({
 		"info": stable_info,
 		"players": stable_players,
 		"rules": snap.rules,
@@ -181,7 +181,7 @@ func _build_info() -> Dictionary:
 	var config := _config()
 	var console := server.console if server != null else null
 
-	var sessions: Array[DotClientSession] = []
+	var sessions: Array[GSClientSession] = []
 	var playing := 0
 	if server != null:
 		sessions = server.sessions()
@@ -195,14 +195,14 @@ func _build_info() -> Dictionary:
 		web_clients = bool(described.get("web_clients", false))
 
 	var info := {
-		"protocol": DotQueryProtocol.VERSION,
+		"protocol": GSQueryProtocol.VERSION,
 		"name": config.hostname,
 		"server_id": config.server_id,
-		"version": DotServer.VERSION,
+		"version": GSServer.VERSION,
 		# The RPC surface, so a browser can tell whether it can join. In `info` because listings already fetch it.
-		"signon": DotSignon.revision([DotServer, DotChatManager]),
+		"signon": GSSignon.revision([GSServer, GSChatManager]),
 		# The game's own map when it reported one, and the game's name when it did not
-		# (see DotGameManager.reported_map). It was the content id unconditionally,
+		# (see GSGameManager.reported_map). It was the content id unconditionally,
 		# which every A2S listing then printed as `owner/repo` in its map column.
 		"map": server.games.reported_map() if _has_games() else "",
 		"game_id": server.games.current().game_id if _has_current_game() else "",
@@ -221,7 +221,7 @@ func _build_info() -> Dictionary:
 		"max_players": config.max_players,
 		"reserved_slots": config.reserved_slots,
 		"visibility": "password" if config.password != "" else "public",
-		"server_type": "dedicated" if DotPlatform.is_headless() else "listen",
+		"server_type": "dedicated" if GSPlatform.is_headless() else "listen",
 		"os": _os_name(),
 		"tags": Array(config.tags),
 		"port": config.port,
@@ -240,7 +240,7 @@ func _build_info() -> Dictionary:
 
 
 ## Fields that exist only when the server serves ENet over UDP, the query listener, or a game.
-func _add_optional_info(info: Dictionary, config: DotServerConfig) -> void:
+func _add_optional_info(info: Dictionary, config: GSServerConfig) -> void:
 	# Where a native client can reach ENet over UDP, when this server serves it.
 	# A native build that reads this tries UDP first and falls back to WebSocket;
 	# absent (or 0) it goes straight to WebSocket, as every client did before.
@@ -254,8 +254,8 @@ func _add_optional_info(info: Dictionary, config: DotServerConfig) -> void:
 	# can discover the richer protocol without being told where it is.
 	if config.query_enabled:
 		info["query"] = {
-			"protocol": DotQueryProtocol.MAGIC,
-			"version": DotQueryProtocol.VERSION,
+			"protocol": GSQueryProtocol.MAGIC,
+			"version": GSQueryProtocol.VERSION,
 			"port": config.effective_query_port(),
 			"websocket_port": config.effective_query_websocket_port() \
 				if config.query_websocket else 0,
@@ -268,7 +268,7 @@ func _add_optional_info(info: Dictionary, config: DotServerConfig) -> void:
 
 
 ## Live console values override the boot-time config in the listing.
-func _apply_console_info(info: Dictionary, config: DotServerConfig, console: Variant) -> void:
+func _apply_console_info(info: Dictionary, config: GSServerConfig, console: Variant) -> void:
 	if console != null:
 		# Read through the console rather than the config: an operator who typed
 		# `hostname "Something Else"` expects the listing to say so, and the config
@@ -279,7 +279,7 @@ func _apply_console_info(info: Dictionary, config: DotServerConfig, console: Var
 			if console.get_string("sv_password", "") != "" else "public"
 
 
-func _build_players(snap: DotQuerySnapshot) -> Array:
+func _build_players(snap: GSQuerySnapshot) -> Array:
 	var config := _config()
 	var detail := player_detail()
 
@@ -294,7 +294,7 @@ func _build_players(snap: DotQuerySnapshot) -> Array:
 
 	for session in server.playing_sessions():
 		if out.size() >= limit:
-			snap.mark_truncated(DotQuerySnapshot.SECTION_PLAYERS)
+			snap.mark_truncated(GSQuerySnapshot.SECTION_PLAYERS)
 			break
 
 		var entry := {
@@ -335,11 +335,11 @@ func _build_rules() -> Dictionary:
 
 
 ## Whether a cvar may appear in a query response.
-## Protected cvars are refused even when [member DotServerConfig.query_extra_rules] names them.
-static func _rule_visible(cvar: DotConVar, config: DotServerConfig) -> bool:
-	if cvar.has_flag(DotConVar.FLAG_PROTECTED):
+## Protected cvars are refused even when [member GSServerConfig.query_extra_rules] names them.
+static func _rule_visible(cvar: GSConVar, config: GSServerConfig) -> bool:
+	if cvar.has_flag(GSConVar.FLAG_PROTECTED):
 		return false
-	if cvar.has_flag(DotConVar.FLAG_HIDDEN):
+	if cvar.has_flag(GSConVar.FLAG_HIDDEN):
 		return false
 
 	if config.query_extra_rules.has(cvar.name):
@@ -348,15 +348,15 @@ static func _rule_visible(cvar: DotConVar, config: DotServerConfig) -> bool:
 	# Source publishes FCVAR_NOTIFY in A2S_RULES; these two flags are the same idea
 	# — a variable whose value changes how the game plays, which is what somebody
 	# deciding whether to join wants to know.
-	return cvar.has_flag(DotConVar.FLAG_NOTIFY) \
-		or cvar.has_flag(DotConVar.FLAG_REPLICATED)
+	return cvar.has_flag(GSConVar.FLAG_NOTIFY) \
+		or cvar.has_flag(GSConVar.FLAG_REPLICATED)
 
 
 ## Sides and their sizes, read from a team roster if the project has one.
 ## Duck-typed: naming a missing class_name would fail to parse and stop the server answering queries.
 ## A provider may replace this by writing [code]teams[/code] into the game section.
 func _build_teams() -> Dictionary:
-	var roster := DotRegistry.get_service(&"dot_team_roster")
+	var roster := GSRegistry.get_service(&"dot_team_roster")
 	if roster == null or not is_instance_valid(roster):
 		return {}
 	if not roster.has_method("counts"):
@@ -385,7 +385,7 @@ func _build_rotation() -> Dictionary:
 		"games": Array(games.game_ids()),
 	}
 
-	var pending: DotGameDescriptor = games.pending()
+	var pending: GSGameDescriptor = games.pending()
 	if pending != null:
 		out["next"] = pending.game_id
 		# Present only while a change is in flight, so a querier can tell
@@ -396,7 +396,7 @@ func _build_rotation() -> Dictionary:
 
 
 ## Server health, for an operator and a monitor rather than for a player.
-## Excluded from the revision hash; see [constant DotQuerySnapshot.VOLATILE_SECTIONS].
+## Excluded from the revision hash; see [constant GSQuerySnapshot.VOLATILE_SECTIONS].
 func _build_perf() -> Dictionary:
 	var out := {
 		"fps": int(Engine.get_frames_per_second()),
@@ -429,18 +429,18 @@ func _build_build() -> Dictionary:
 		"engine": "Godot %s" % str(engine.get("string", "")),
 		"engine_major": int(engine.get("major", 0)),
 		"engine_minor": int(engine.get("minor", 0)),
-		"server": DotServer.VERSION,
-		"query": DotQueryProtocol.VERSION,
+		"server": GSServer.VERSION,
+		"query": GSQueryProtocol.VERSION,
 		"os": _os_name(),
 		"arch": Engine.get_architecture_name(),
 		"debug": OS.is_debug_build(),
-		"headless": DotPlatform.is_headless(),
+		"headless": GSPlatform.is_headless(),
 	}
 
 
 ## Adds an HMAC over the response body when a shared secret is configured.
 ## Same shape as the backbone's integration requests (timestamp, nonce, signature).
-## Off unless [member DotServerConfig.query_secret] is set.
+## Off unless [member GSServerConfig.query_secret] is set.
 func sign(body: Dictionary) -> Dictionary:
 	var secret := _config().query_secret
 	if secret == "":
@@ -448,7 +448,7 @@ func sign(body: Dictionary) -> Dictionary:
 
 	var stamped := body.duplicate(true)
 	var ts := int(Time.get_unix_time_from_system())
-	var nonce := DotHash.random_hex(8)
+	var nonce := GSHash.random_hex(8)
 
 	# Signed over the body with the auth block absent, so a verifier reproduces it
 	# by removing the same block. Signing a canonicalisation the server then does
@@ -458,7 +458,7 @@ func sign(body: Dictionary) -> Dictionary:
 	stamped["auth"] = {
 		"ts": ts,
 		"nonce": nonce,
-		"sig": DotHash.hmac_sha256_hex(secret, payload),
+		"sig": GSHash.hmac_sha256_hex(secret, payload),
 	}
 
 	return stamped
@@ -473,10 +473,10 @@ func player_detail() -> String:
 	return _config().query_player_detail
 
 
-func _config() -> DotServerConfig:
+func _config() -> GSServerConfig:
 	if server != null and server.config != null:
 		return server.config
-	return DotServerConfig.new()
+	return GSServerConfig.new()
 
 
 func _has_games() -> bool:
@@ -493,10 +493,10 @@ func effective_app_url() -> String:
 	if server != null and server.console != null:
 		var live := server.console.get_string("sv_query_app", "")
 		if live != "":
-			return DotPaths.slugify(live)
+			return GSPaths.slugify(live)
 
 	if app_url != "":
-		return DotPaths.slugify(app_url)
+		return GSPaths.slugify(app_url)
 
 	if _has_current_game():
 		return server.games.current().game_id

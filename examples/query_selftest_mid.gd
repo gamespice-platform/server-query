@@ -20,14 +20,14 @@ func _test_a2s() -> void:
 
 	# Sent to the query listener, because that is what owns the socket. The two
 	# protocols are told apart by their first four bytes.
-	var info_request := _a2s_request(DotA2SServer.REQUEST_INFO, true, 0)
+	var info_request := _a2s_request(GSA2SServer.REQUEST_INFO, true, 0)
 	var challenge_reply := query.handle_datagram(info_request, address, port)
 	_check("A2S_INFO without a challenge gets one", challenge_reply.size() == 1)
 
 	var reader := _A2SReader.new(challenge_reply[0])
 	_check("the challenge is a single-packet response", reader.single())
 	_check("the challenge has the 'A' header",
-		reader.u8() == DotA2SServer.RESPONSE_CHALLENGE)
+		reader.u8() == GSA2SServer.RESPONSE_CHALLENGE)
 
 	var cookie := reader.u32()
 	_check("the A2S challenge is not the reserved sentinel", cookie != 0xFFFFFFFF)
@@ -39,13 +39,13 @@ func _test_a2s() -> void:
 	# on the previous map for a rebuild interval.
 	server.games.set_current_map("surf_selftest")
 	var info_reply := query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_INFO, true, cookie), address, port
+		_a2s_request(GSA2SServer.REQUEST_INFO, true, cookie), address, port
 	)
 	_check("A2S_INFO with a challenge is answered", info_reply.size() == 1)
 
 	var info := _A2SReader.new(info_reply[0])
 	_check("info is a single-packet response", info.single())
-	_check("info has the 'I' header", info.u8() == DotA2SServer.RESPONSE_INFO)
+	_check("info has the 'I' header", info.u8() == GSA2SServer.RESPONSE_INFO)
 	_check("info reports protocol 17", info.u8() == 17)
 	_check("info carries the live hostname", info.cstring() == "Renamed For The Test")
 	_check("info carries the map the game reported", info.cstring() == "surf_selftest")
@@ -62,12 +62,12 @@ func _test_a2s() -> void:
 	info.u8()       # os
 	_check("info reports no password", info.u8() == 0)
 	info.u8()       # vac
-	_check("info carries the version", info.cstring() == DotServer.VERSION)
+	_check("info carries the version", info.cstring() == GSServer.VERSION)
 
 	var edf := info.u8()
-	_check("info sets the port extra-data flag", (edf & DotA2SServer.EDF_PORT) != 0)
+	_check("info sets the port extra-data flag", (edf & GSA2SServer.EDF_PORT) != 0)
 	info.u16()      # port
-	_check("info sets the keywords flag", (edf & DotA2SServer.EDF_KEYWORDS) != 0)
+	_check("info sets the keywords flag", (edf & GSA2SServer.EDF_KEYWORDS) != 0)
 	var keywords := info.cstring()
 	_check("keywords carry the server tags", keywords.contains("example"))
 	# The one extensible field A2S has, pointing a tracker at the protocol
@@ -77,11 +77,11 @@ func _test_a2s() -> void:
 	_test_a2s_queries(query, address, port, cookie)
 
 
-func _test_a2s_queries(query: DotQueryServer, address: String, port: int, cookie: int) -> void:
+func _test_a2s_queries(query: GSQueryServer, address: String, port: int, cookie: int) -> void:
 	# A packet claiming to be A2S_INFO without the fixed string is not one.
 	_check("a malformed A2S_INFO is ignored",
 		query.handle_datagram(
-			_a2s_request(DotA2SServer.REQUEST_INFO, false, cookie), address, port
+			_a2s_request(GSA2SServer.REQUEST_INFO, false, cookie), address, port
 		).is_empty())
 
 	# PLAYER and RULES have always been challenged.
@@ -89,24 +89,24 @@ func _test_a2s_queries(query: DotQueryServer, address: String, port: int, cookie
 	# must never match: every cookie has its top bit cleared, so it cannot be this.
 	_check("A2S_PLAYER without a challenge gets one",
 		_A2SReader.new(query.handle_datagram(
-			_a2s_request(DotA2SServer.REQUEST_PLAYER, false, 0xFFFFFFFF),
+			_a2s_request(GSA2SServer.REQUEST_PLAYER, false, 0xFFFFFFFF),
 			address, port
-		)[0]).skip(4).u8() == DotA2SServer.RESPONSE_CHALLENGE)
+		)[0]).skip(4).u8() == GSA2SServer.RESPONSE_CHALLENGE)
 
 	var players := _A2SReader.new(query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_PLAYER, false, cookie), address, port
+		_a2s_request(GSA2SServer.REQUEST_PLAYER, false, cookie), address, port
 	)[0])
 	_check("A2S_PLAYER is answered", players.single())
 	_check("player response has the 'D' header",
-		players.u8() == DotA2SServer.RESPONSE_PLAYER)
+		players.u8() == GSA2SServer.RESPONSE_PLAYER)
 	_check("player response counts nobody on an empty server", players.u8() == 0)
 
 	var rules := _A2SReader.new(query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_RULES, false, cookie), address, port
+		_a2s_request(GSA2SServer.REQUEST_RULES, false, cookie), address, port
 	)[0])
 	_check("A2S_RULES is answered", rules.single())
 	_check("rules response has the 'E' header",
-		rules.u8() == DotA2SServer.RESPONSE_RULES)
+		rules.u8() == GSA2SServer.RESPONSE_RULES)
 
 	var rule_count := rules.u16()
 	_check("rules response lists rules", rule_count > 0)
@@ -119,27 +119,27 @@ func _test_a2s_queries(query: DotQueryServer, address: String, port: int, cookie
 	_check("rules response was read exactly to its end", rules.at_end())
 
 	var ping := _A2SReader.new(query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_PING, false, -1), address, port
+		_a2s_request(GSA2SServer.REQUEST_PING, false, -1), address, port
 	)[0])
 	_check("A2A_PING is answered",
-		ping.single() and ping.u8() == DotA2SServer.RESPONSE_PING)
+		ping.single() and ping.u8() == GSA2SServer.RESPONSE_PING)
 
 	_run("sv_a2s 0")
 	_check("sv_a2s 0 stops answering",
 		query.handle_datagram(
-			_a2s_request(DotA2SServer.REQUEST_INFO, true, cookie), address, port
+			_a2s_request(GSA2SServer.REQUEST_INFO, true, cookie), address, port
 		).is_empty())
 	_run("sv_a2s 1")
 	_check("the dot protocol still answers while A2S is off",
 		not query.handle_datagram(
-			DotQueryProtocol.build_request(
-				DotQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0
+			GSQueryProtocol.build_request(
+				GSQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0
 			), address, port
 		).is_empty())
 	_check("A2S's version is the running game's, not the framework constant",
-		DotA2SServer.a2s_version({"version": "0.1.0", "game_version": "0.1.14"}) == "0.1.14")
+		GSA2SServer.a2s_version({"version": "0.1.0", "game_version": "0.1.14"}) == "0.1.14")
 	_check("with no game running, A2S's version is the server's",
-		DotA2SServer.a2s_version({"version": "0.1.0", "game_version": ""}) == "0.1.0")
+		GSA2SServer.a2s_version({"version": "0.1.0", "game_version": ""}) == "0.1.0")
 	_done()
 
 
@@ -149,7 +149,7 @@ func _test_shared_udp_port() -> void:
 	print("")
 	_section("[enet, dqp and a2s on one udp port]")
 
-	var config := DotServerConfig.new()
+	var config := GSServerConfig.new()
 	config.port = SHARED_PORT
 	config.max_players = 4
 	config.tickrate = 30
@@ -161,12 +161,12 @@ func _test_shared_udp_port() -> void:
 	config.startup_config = ""
 	config.autoexec_config = ""
 	config.hibernate_when_empty = false
-	DotPaths.remove_tree("user://queryexample-shared")
+	GSPaths.remove_tree("user://queryexample-shared")
 	config.admins_path = "user://queryexample-shared/admins.json"
 	config.bans_path = "user://queryexample-shared/bans.json"
 	config.audit_log_path = "user://queryexample-shared/audit.jsonl"
 
-	var shared := DotServer.new()
+	var shared := GSServer.new()
 	shared.name = "SharedServer"
 	shared.config = config
 	shared.config_file = ""
@@ -176,12 +176,12 @@ func _test_shared_udp_port() -> void:
 	# servers on one API would each hear the other's peers join.
 	get_tree().set_multiplayer(SceneMultiplayer.new(), shared.get_path())
 
-	var shared_host := DotQueryHost.new()
+	var shared_host := GSQueryHost.new()
 	shared_host.name = "SharedQueryHost"
-	shared_host.server_ref = DotNodeRef.of_path(NodePath("../SharedServer"))
+	shared_host.server_ref = GSNodeRef.of_path(NodePath("../SharedServer"))
 	add_child(shared_host)
 
-	var booted: DotResult = await shared.boot()
+	var booted: GSResult = await shared.boot()
 	_check("a dual-stack server boots with queries on its port", booted.ok)
 	if not booted.ok:
 		return
@@ -196,7 +196,7 @@ func _test_shared_udp_port() -> void:
 	var udp := PacketPeerUDP.new()
 	udp.bind(0, "127.0.0.1")
 	udp.set_dest_address("127.0.0.1", SHARED_PORT)
-	udp.put_packet(_a2s_request(DotA2SServer.REQUEST_INFO, true, 0))
+	udp.put_packet(_a2s_request(GSA2SServer.REQUEST_INFO, true, 0))
 	var replies: Array[PackedByteArray] = []
 	var deadline := Time.get_ticks_msec() + 3000
 	while replies.is_empty() and Time.get_ticks_msec() < deadline:
@@ -204,7 +204,7 @@ func _test_shared_udp_port() -> void:
 		while udp.get_available_packet_count() > 0:
 			replies.append(udp.get_packet())
 	_check("A2S on the game port is answered over a real socket",
-		not replies.is_empty() and replies[0].decode_u32(0) == DotA2SServer.HEADER_SINGLE)
+		not replies.is_empty() and replies[0].decode_u32(0) == GSA2SServer.HEADER_SINGLE)
 
 	var cookie := -1
 	if not replies.is_empty():
@@ -212,7 +212,7 @@ func _test_shared_udp_port() -> void:
 		reader.single()
 		reader.u8()
 		cookie = reader.u32()
-	udp.put_packet(_a2s_request(DotA2SServer.REQUEST_INFO, true, cookie))
+	udp.put_packet(_a2s_request(GSA2SServer.REQUEST_INFO, true, cookie))
 	replies.clear()
 	deadline = Time.get_ticks_msec() + 3000
 	while replies.is_empty() and Time.get_ticks_msec() < deadline:
@@ -225,8 +225,8 @@ func _test_shared_udp_port() -> void:
 	await _test_shared_enet_join(shared, shared_host)
 
 
-func _test_shared_enet_join(shared: DotServer, shared_host: DotQueryHost) -> void:
-	var enet_res := DotTransportENet.new().create_client("127.0.0.1", SHARED_PORT)
+func _test_shared_enet_join(shared: GSServer, shared_host: GSQueryHost) -> void:
+	var enet_res := GSTransportENet.new().create_client("127.0.0.1", SHARED_PORT)
 	var client: MultiplayerPeer = enet_res.value if enet_res.ok else null
 	var joined := false
 	var deadline := Time.get_ticks_msec() + 5000
@@ -238,7 +238,7 @@ func _test_shared_enet_join(shared: DotServer, shared_host: DotQueryHost) -> voi
 		await get_tree().process_frame
 	_check("an ENet client joins through the same port", joined)
 
-	var session: DotClientSession = shared.sessions()[0] if joined else null
+	var session: GSClientSession = shared.sessions()[0] if joined else null
 	_check("and the server sees its real address, not the relay's",
 		session != null and session.address == "127.0.0.1")
 	_check("and knows it came over ENet",
@@ -272,7 +272,7 @@ func _test_a2s_extra_data() -> void:
 
 	var cookie := _a2s_cookie(query, address, port)
 	var reply := query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_INFO, true, cookie), address, port
+		_a2s_request(GSA2SServer.REQUEST_INFO, true, cookie), address, port
 	)
 	_check("A2S_INFO answered with every extra field", reply.size() == 1)
 
@@ -297,11 +297,11 @@ func _test_a2s_extra_data() -> void:
 	_check("the folder is the app slug", folder == APP_URL)
 
 	var edf := r.u8()
-	_check("the port flag is set", (edf & DotA2SServer.EDF_PORT) != 0)
-	_check("the server id flag is set", (edf & DotA2SServer.EDF_STEAM_ID) != 0)
-	_check("the spectator flag is set", (edf & DotA2SServer.EDF_SPECTATOR) != 0)
-	_check("the keywords flag is set", (edf & DotA2SServer.EDF_KEYWORDS) != 0)
-	_check("the game id flag is set", (edf & DotA2SServer.EDF_GAME_ID) != 0)
+	_check("the port flag is set", (edf & GSA2SServer.EDF_PORT) != 0)
+	_check("the server id flag is set", (edf & GSA2SServer.EDF_STEAM_ID) != 0)
+	_check("the spectator flag is set", (edf & GSA2SServer.EDF_SPECTATOR) != 0)
+	_check("the keywords flag is set", (edf & GSA2SServer.EDF_KEYWORDS) != 0)
+	_check("the game id flag is set", (edf & GSA2SServer.EDF_GAME_ID) != 0)
 
 	# The order below is the protocol's field order, not the numeric order of the bits.
 	# A writer using the numeric order makes every client misparse silently (a port read out of a string).
@@ -315,7 +315,7 @@ func _test_a2s_extra_data() -> void:
 	_test_a2s_extra_absent(query, a2s, address, port, cookie)
 
 
-func _test_a2s_extra_absent(query: DotQueryServer, a2s: DotA2SServer, address: String, port: int, cookie: int) -> void:
+func _test_a2s_extra_absent(query: GSQueryServer, a2s: GSA2SServer, address: String, port: int, cookie: int) -> void:
 	# Zero means absent, not "send a zero": a client reading a field that is not
 	# there reads the next one instead.
 	a2s.steam_id = 0
@@ -323,7 +323,7 @@ func _test_a2s_extra_absent(query: DotQueryServer, a2s: DotA2SServer, address: S
 	a2s.game_id = 0
 
 	var plain := _A2SReader.new(query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_INFO, true, cookie), address, port
+		_a2s_request(GSA2SServer.REQUEST_INFO, true, cookie), address, port
 	)[0])
 	plain.single()
 	for i in range(4):
@@ -337,20 +337,20 @@ func _test_a2s_extra_absent(query: DotQueryServer, a2s: DotA2SServer, address: S
 	plain.cstring()
 	var bare_edf := plain.u8()
 	_check("an unset server id clears its flag",
-		(bare_edf & DotA2SServer.EDF_STEAM_ID) == 0)
+		(bare_edf & GSA2SServer.EDF_STEAM_ID) == 0)
 	_check("an unset spectator port clears its flag",
-		(bare_edf & DotA2SServer.EDF_SPECTATOR) == 0)
+		(bare_edf & GSA2SServer.EDF_SPECTATOR) == 0)
 	_check("an unset game id clears its flag",
-		(bare_edf & DotA2SServer.EDF_GAME_ID) == 0)
+		(bare_edf & GSA2SServer.EDF_GAME_ID) == 0)
 
 	# The one game-specific block in the protocol, gated on the app id so it can
 	# never fire by accident. It sits before the version string, so emitting it
 	# for the wrong app id shifts every following field.
 	_check("the extra block is off for an ordinary app id",
-		not DotA2SServer._has_extra_block(server.config.a2s_app_id))
+		not GSA2SServer._has_extra_block(server.config.a2s_app_id))
 	_check("the extra block is on for the app ids that carry it",
-		DotA2SServer._has_extra_block(DotA2SServer.SHIP_APP_ID_FIRST)
-		and DotA2SServer._has_extra_block(DotA2SServer.SHIP_APP_ID_LAST))
+		GSA2SServer._has_extra_block(GSA2SServer.SHIP_APP_ID_FIRST)
+		and GSA2SServer._has_extra_block(GSA2SServer.SHIP_APP_ID_LAST))
 	_check("the extra block range is closed",
-		not DotA2SServer._has_extra_block(DotA2SServer.SHIP_APP_ID_LAST + 1))
+		not GSA2SServer._has_extra_block(GSA2SServer.SHIP_APP_ID_LAST + 1))
 	_done()

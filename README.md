@@ -25,7 +25,7 @@ Server-list sites, chat bots and uptime monitors speak A2S, so all of A2S is imp
 ## Use
 
 ```gdscript
-var host := DotQueryHost.new()
+var host := GSQueryHost.new()
 host.app_url = "your-app-url"   # the app's URL segment on the website
 server.add_child(host)          # finds the server and plugs itself in
 ```
@@ -43,7 +43,7 @@ config.query_port = 0      # 0 = the A2S port, so one socket serves both
 config.a2s_port = 0        # 0 = the game port
 ```
 
-Different ports bind separately. On the game port with GameSpice Server's default transport (`DotTransportDual`) both protocols share the transport's UDP socket and nothing binds a second one. If another process or a plain ENet transport holds the port, the bind fails and the log says so. Then set `query_port` to a free port, though most trackers will not look there.
+Different ports bind separately. On the game port with GameSpice Server's default transport (`GSTransportDual`) both protocols share the transport's UDP socket and nothing binds a second one. If another process or a plain ENet transport holds the port, the bind fails and the log says so. Then set `query_port` to a free port, though most trackers will not look there.
 
 ## Every query is challenged
 
@@ -56,7 +56,7 @@ UDP source addresses are easy to forge, and a query is a small request with a la
 | `info` | Identity, counts, addresses. `info.connecting` shows players still joining. |
 | `players` | One row per player, governed by `query_player_detail`. |
 | `rules` | Server variables a querier may see. |
-| `game` | Whatever the game contributes through a `DotQueryProvider`. |
+| `game` | Whatever the game contributes through a `GSQueryProvider`. |
 | `teams` | Sides and their sizes. |
 | `rotation` | What is playing, what is next, what else this server runs. |
 | `perf` | Tick, frame time, memory, uptime. |
@@ -83,11 +83,11 @@ ws.onmessage = e => console.log(JSON.parse(e.data));
 ## Adding your game's state
 
 ```gdscript
-class FcQuery extends DotQueryProvider:
+class FcQuery extends GSQueryProvider:
     func _provider_name() -> String:
         return "fc"
 
-    func _contribute(snapshot: DotQuerySnapshot) -> void:
+    func _contribute(snapshot: GSQuerySnapshot) -> void:
         snapshot.info["bots"] = match_state.bot_count()
         snapshot.contribute_game({
             "phase": match_state.phase_name(),
@@ -95,14 +95,14 @@ class FcQuery extends DotQueryProvider:
             "time_left": match_state.seconds_remaining(),
         })
 
-DotRegistry.get_service(&"dot_query_source").add_provider(FcQuery.new())
+GSRegistry.get_service(&"dot_query_source").add_provider(FcQuery.new())
 ```
 
-Only a provider can report the bot count, because the server never sees a bot connect. The map shown in `info.map` is GameSpice Server's `DotGameManager.reported_map()`: the map the game reported with `set_current_map`, or the game's display name. Reporting a map drops the cached snapshot.
+Only a provider can report the bot count, because the server never sees a bot connect. The map shown in `info.map` is GameSpice Server's `GSGameManager.reported_map()`: the map the game reported with `set_current_map`, or the game's display name. Reporting a map drops the cached snapshot.
 
 ## Statistics
 
-`DotQueryStats` bridges GameSpice Stats without depending on it.
+`GSQueryStats` bridges GameSpice Stats without depending on it.
 
 | Kind | Default |
 | --- | --- |

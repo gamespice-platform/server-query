@@ -1,10 +1,10 @@
 @tool
-class_name DotA2SServer
+class_name GSA2SServer
 extends Node
 
 ## The A2S query protocol, so existing server trackers can see this server.
-## For compatibility: trackers speak only A2S. Off by default ([member DotServerConfig.a2s_enabled]).
-## Every request is challenged, [code]A2S_INFO[/code] included, against reflection. See [DotQueryChallenge].
+## For compatibility: trackers speak only A2S. Off by default ([member GSServerConfig.a2s_enabled]).
+## Every request is challenged, [code]A2S_INFO[/code] included, against reflection. See [GSQueryChallenge].
 
 const CHANNEL := "a2s"
 const SERVICE := &"dot_a2s_server"
@@ -76,7 +76,7 @@ signal query_answered(address: String, request_type: int)
 @export var spectator_name: String = ""
 
 ## 64-bit game id, sent as EDF [code]0x01[/code]. 0 omits the field.
-## Supersedes the 16-bit app id when that will not fit, so set [member DotServerConfig.a2s_app_id] truncated too.
+## Supersedes the 16-bit app id when that will not fit, so set [member GSServerConfig.a2s_app_id] truncated too.
 @export var game_id: int = 0
 
 @export_group("Game-specific extras")
@@ -90,16 +90,16 @@ signal query_answered(address: String, request_type: int)
 ## Duration, for the app ids that carry the extra block.
 @export_range(0, 255, 1) var extra_duration: int = 0
 
-var server: DotServer = null
-var source: DotQuerySource = null
+var server: GSServer = null
+var source: GSQuerySource = null
 
-## Shared with [DotQueryServer] when they share a socket, so one secret covers both.
-var challenge: DotQueryChallenge = null
+## Shared with [GSQueryServer] when they share a socket, so one secret covers both.
+var challenge: GSQueryChallenge = null
 
 var _udp: PacketPeerUDP = null
 ## True when the game transport owns the UDP port and hands A2S datagrams over.
 var _shared: bool = false
-var _limiter: DotQueryLimiter = null
+var _limiter: GSQueryLimiter = null
 var _next_split_id: int = 1
 
 var _answered: int = 0
@@ -107,31 +107,31 @@ var _challenged: int = 0
 var _refused: int = 0
 
 
-func setup(p_server: DotServer, p_source: DotQuerySource) -> void:
+func setup(p_server: GSServer, p_source: GSQuerySource) -> void:
 	server = p_server
 	source = p_source
 
 	if challenge == null:
-		challenge = DotQueryChallenge.new(server.config.query_challenge_ttl_sec)
+		challenge = GSQueryChallenge.new(server.config.query_challenge_ttl_sec)
 
-	_limiter = DotQueryLimiter.new(
+	_limiter = GSQueryLimiter.new(
 		server.config.query_rate_per_second, server.config.query_rate_burst
 	)
 
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 
 
 func _exit_tree() -> void:
 	close()
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
 ## Binds this responder's own UDP socket.
-## Not called when [DotQueryServer] listens on the same port; it owns the socket and hands datagrams over.
-func open() -> DotResult:
-	if not DotPlatform.can_listen():
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED, "This platform cannot listen for connections."
+## Not called when [GSQueryServer] listens on the same port; it owns the socket and hands datagrams over.
+func open() -> GSResult:
+	if not GSPlatform.can_listen():
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED, "This platform cannot listen for connections."
 		)
 
 	var port := server.config.effective_a2s_port()
@@ -142,22 +142,22 @@ func open() -> DotResult:
 			and server.share_udp_port(port, looks_like_a2s, handle_datagram):
 		_shared = true
 		set_process(true)
-		DotLog.info(CHANNEL, "A2S listening", {"port": port, "shared_with": "enet"})
-		return DotResult.success(port)
+		GSLog.info(CHANNEL, "A2S listening", {"port": port, "shared_with": "enet"})
+		return GSResult.success(port)
 
 	_udp = PacketPeerUDP.new()
 	var err := _udp.bind(port, server.config.effective_query_bind_address())
 
 	if err != OK:
 		_udp = null
-		return DotResult.failure(DotError.from_engine(
+		return GSResult.failure(GSError.from_engine(
 			err,
 			"binding the A2S port %d" % port
 		)).wrap(_bind_advice(port))
 
 	set_process(true)
-	DotLog.info(CHANNEL, "A2S listening", {"port": port})
-	return DotResult.success(port)
+	GSLog.info(CHANNEL, "A2S listening", {"port": port})
+	return GSResult.success(port)
 
 
 ## Explains the usual reason [method open] fails.
@@ -214,7 +214,7 @@ static func looks_like_a2s(data: PackedByteArray) -> bool:
 
 
 ## Answers one datagram. Returns the datagrams to send back, possibly none.
-## Socket-free, so [DotQueryServer] can call it for a shared socket and the self-test can run it.
+## Socket-free, so [GSQueryServer] can call it for a shared socket and the self-test can run it.
 func handle_datagram(
 	data: PackedByteArray, address: String, port: int
 ) -> Array[PackedByteArray]:
@@ -228,7 +228,7 @@ func handle_datagram(
 
 	# Rate limited before anything is built. An unchallenged request costs a hash
 	# and nine bytes, and this keeps even that bounded.
-	if not _limiter.allow(DotBanManager.normalise_address(address)):
+	if not _limiter.allow(GSBanManager.normalise_address(address)):
 		_refused += 1
 		return none
 
@@ -357,7 +357,7 @@ func _info_response() -> PackedByteArray:
 
 
 ## The extra-data flag byte and the fields it announces, at the tail of A2S_INFO.
-func _put_extra_fields(buf: StreamPeerBuffer, snap: DotQuerySnapshot) -> void:
+func _put_extra_fields(buf: StreamPeerBuffer, snap: GSQuerySnapshot) -> void:
 	var config := server.config
 	var tags := _keywords(snap)
 
@@ -397,7 +397,7 @@ static func _has_extra_block(app_id: int) -> bool:
 
 
 ## The keywords string, the only extensible field A2S has: server tags, plus the DQP port when running.
-func _keywords(snap: DotQuerySnapshot) -> String:
+func _keywords(snap: GSQuerySnapshot) -> String:
 	var parts := PackedStringArray()
 
 	for tag in server.config.tags:
@@ -469,7 +469,7 @@ func _fit_players(all: Array) -> Array:
 		n += 1
 	if n < all.size() and n < 255 and not _warned_player_trim:
 		_warned_player_trim = true
-		DotLog.warn(CHANNEL, "A2S player list trimmed to fit the split ceiling", {"players": all.size(), "sent": n})
+		GSLog.warn(CHANNEL, "A2S player list trimmed to fit the split ceiling", {"players": all.size(), "sent": n})
 	return all.slice(0, n)
 
 
@@ -543,7 +543,7 @@ func _split(body: PackedByteArray) -> Array[PackedByteArray]:
 
 	if total > MAX_SPLIT_PACKETS:
 		total = MAX_SPLIT_PACKETS
-		DotLog.debug(
+		GSLog.debug(
 			CHANNEL,
 			"A2S response truncated to the split ceiling",
 			{"bytes": whole.size(), "packets": total}

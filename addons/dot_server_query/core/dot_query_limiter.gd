@@ -1,5 +1,5 @@
-class_name DotQueryLimiter
-extends DotRateLimiter
+class_name GSQueryLimiter
+extends GSRateLimiter
 
 ## GameSpice Core's per-key token bucket, with a ceiling on how many keys it will hold.
 ## Limiting by unproven UDP address would let forged ones grow the table without bound, so full buckets are

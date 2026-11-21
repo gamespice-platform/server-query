@@ -1,8 +1,8 @@
-class_name DotQueryProvider
+class_name GSQueryProvider
 extends RefCounted
 
 ## Where a game puts its own state into a query response. Subclass, override [code]_provider_name()[/code] and [code]_contribute(snapshot)[/code], and register with
-## [method DotQuerySource.add_provider]. It runs on the public query path once per rebuild: keep it cheap.
+## [method GSQuerySource.add_provider]. It runs on the public query path once per rebuild: keep it cheap.
 ## Any object with [code]_contribute[/code] (or [code]contribute[/code]) and a name works.
 
 
@@ -12,23 +12,23 @@ func _provider_name() -> String:
 
 
 ## Adds to, or corrects, the snapshot. Called after the standard sections are built.
-func _contribute(_snapshot: DotQuerySnapshot) -> void:
+func _contribute(_snapshot: GSQuerySnapshot) -> void:
 	pass
 
 
 ## Checks an object can act as a provider, before it is registered.
-static func validate(provider: Object) -> DotResult:
+static func validate(provider: Object) -> GSResult:
 	if provider == null:
-		return DotResult.fail(DotError.CODE_INVALID, "A provider cannot be null.")
+		return GSResult.fail(GSError.CODE_INVALID, "A provider cannot be null.")
 
 	if not (provider.has_method("_contribute") or provider.has_method("contribute")):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"A query provider needs a _contribute(snapshot) method.",
 			"got a %s" % provider.get_class()
 		)
 
-	return DotResult.success(provider)
+	return GSResult.success(provider)
 
 
 static func name_of(provider: Object) -> String:
@@ -43,7 +43,7 @@ static func name_of(provider: Object) -> String:
 	return provider.get_class()
 
 
-static func contribute_to(provider: Object, snapshot: DotQuerySnapshot) -> void:
+static func contribute_to(provider: Object, snapshot: GSQuerySnapshot) -> void:
 	if provider == null:
 		return
 	if provider.has_method("_contribute"):

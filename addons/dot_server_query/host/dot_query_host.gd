@@ -1,46 +1,46 @@
 @tool
-class_name DotQueryHost
+class_name GSQueryHost
 extends Node
 
-## Plugs the query responders into a [DotServer], and owns their lifetime.
+## Plugs the query responders into a [GSServer], and owns their lifetime.
 ## GameSpice Server names nothing here; add this to its scene to answer queries.
-## Brings up [DotQuerySource], then [DotQueryServer] (binds first, owns a shared socket), then [DotA2SServer].
+## Brings up [GSQuerySource], then [GSQueryServer] (binds first, owns a shared socket), then [GSA2SServer].
 
 const CHANNEL := "query"
 const SERVICE := &"dot_query_host"
 
-## The server to answer for. Defaults to the one in [DotRegistry]; explicit because a process may run two.
-@export var server_ref: DotNodeRef = null
+## The server to answer for. Defaults to the one in [GSRegistry]; explicit because a process may run two.
+@export var server_ref: GSNodeRef = null
 
-## How long to wait for a server to appear in [DotRegistry]. Only the default registry lookup waits.
+## How long to wait for a server to appear in [GSRegistry]. Only the default registry lookup waits.
 @export_range(0.0, 60.0, 0.5) var attach_timeout_sec: float = 10.0
 
 ## The app's URL segment on the website: this game's code name in a listing.
-## See [member DotQuerySource.app_url] for why nothing treats it as proof.
+## See [member GSQuerySource.app_url] for why nothing treats it as proof.
 @export var app_url: String = ""
 
 @export_group("Nodes")
 
 ## Where to find or create the snapshot builder. Created as a child by default.
-@export var source_ref: DotNodeRef = null
+@export var source_ref: GSNodeRef = null
 
 ## Where to find or create the DQP listener.
-@export var query_ref: DotNodeRef = null
+@export var query_ref: GSNodeRef = null
 
 ## Where to find or create the A2S listener.
-@export var a2s_ref: DotNodeRef = null
+@export var a2s_ref: GSNodeRef = null
 
 ## Where to find the GameSpice Stats bridge. [b]Not created by default[/b] — a server
 ## whose game counts nothing should not grow a statistics section.
-@export var stats_ref: DotNodeRef = null
+@export var stats_ref: GSNodeRef = null
 
 signal opened(query_port: int, a2s_port: int)
 
-var server: DotServer = null
-var source: DotQuerySource = null
-var query: DotQueryServer = null
-var a2s: DotA2SServer = null
-var stats: DotQueryStats = null
+var server: GSServer = null
+var source: GSQuerySource = null
+var query: GSQueryServer = null
+var a2s: GSA2SServer = null
+var stats: GSQueryStats = null
 
 var _attached: bool = false
 var _opened: bool = false
@@ -51,17 +51,17 @@ func _ready() -> void:
 		return
 
 	if server_ref == null:
-		server_ref = DotNodeRef.of_service(DotServer.SERVICE)
+		server_ref = GSNodeRef.of_service(GSServer.SERVICE)
 
 	# A host is ready before the server beside it has booted (it registers part-way through boot()),
 	# so only the registry path waits; a path or node ref resolves first try or never.
-	if server_ref.mode == DotNodeRef.Mode.REGISTRY \
-			and DotRegistry.get_service(server_ref.service) == null:
-		var waited := await DotRegistry.await_service(
+	if server_ref.mode == GSNodeRef.Mode.REGISTRY \
+			and GSRegistry.get_service(server_ref.service) == null:
+		var waited := await GSRegistry.await_service(
 			server_ref.service, attach_timeout_sec
 		)
 		if not waited.ok:
-			DotLog.warn(
+			GSLog.warn(
 				CHANNEL,
 				"no server to attach to: this server will not answer queries",
 				{"service": String(server_ref.service)}
@@ -70,7 +70,7 @@ func _ready() -> void:
 
 	var attached := attach()
 	if not attached.ok:
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL,
 			"could not attach to the server",
 			{"detail": attached.error.message}
@@ -79,17 +79,17 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	close()
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
 ## Finds the server and offers itself to it.
 ## Safe to call twice; on a server that already booted the listeners open immediately.
-func attach() -> DotResult:
+func attach() -> GSResult:
 	if _attached:
-		return DotResult.success(server)
+		return GSResult.success(server)
 
 	if server_ref == null:
-		server_ref = DotNodeRef.of_service(DotServer.SERVICE)
+		server_ref = GSNodeRef.of_service(GSServer.SERVICE)
 
 	var resolved := server_ref.resolve(self)
 	if not resolved.ok:
@@ -98,13 +98,13 @@ func attach() -> DotResult:
 			+ "node after the server has registered itself."
 		)
 
-	server = resolved.value as DotServer
+	server = resolved.value as GSServer
 	if server == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "server_ref did not resolve to a DotServer."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "server_ref did not resolve to a GSServer."
 		)
 
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 	_attached = true
 
 	# The server calls back into open() when it is ready, or straight away if it
@@ -115,15 +115,15 @@ func attach() -> DotResult:
 
 ## Brings up whichever listeners the configuration asks for.
 ## Called by the server. Succeeds when nothing is enabled: no listener is a supported configuration.
-func open() -> DotResult:
+func open() -> GSResult:
 	if _opened:
-		return DotResult.success(self)
+		return GSResult.success(self)
 	if server == null:
-		return DotResult.fail(DotError.CODE_STATE, "Not attached to a server.")
+		return GSResult.fail(GSError.CODE_STATE, "Not attached to a server.")
 
 	var config := server.config
 	if not config.query_enabled and not config.a2s_enabled:
-		return DotResult.success(self)
+		return GSResult.success(self)
 
 	_opened = true
 
@@ -140,21 +140,21 @@ func open() -> DotResult:
 	var a2s_port := _open_a2s(config)
 
 	opened.emit(query_port, a2s_port)
-	return DotResult.success(self)
+	return GSResult.success(self)
 
 
-func _build_source() -> DotResult:
+func _build_source() -> GSResult:
 	if source_ref == null:
-		source_ref = DotNodeRef.of_created(&"QuerySource", DotQuerySource)
+		source_ref = GSNodeRef.of_created(&"QuerySource", GSQuerySource)
 
 	var resolved := source_ref.resolve(self)
 	if not resolved.ok:
 		return resolved.wrap("Could not create the query source.")
 
-	source = resolved.value as DotQuerySource
+	source = resolved.value as GSQuerySource
 	if source == null:
-		return DotResult.fail(
-			DotError.CODE_INVALID, "source_ref did not resolve to a DotQuerySource."
+		return GSResult.fail(
+			GSError.CODE_INVALID, "source_ref did not resolve to a GSQuerySource."
 		)
 
 	source.app_url = app_url
@@ -162,25 +162,25 @@ func _build_source() -> DotResult:
 
 	if stats_ref != null:
 		var stats_node := stats_ref.resolve_or_null(self, CHANNEL)
-		stats = stats_node as DotQueryStats
+		stats = stats_node as GSQueryStats
 		if stats != null:
 			stats.setup(server)
 			source.stats = stats
 
-	# The server's own query_source hook, so DotModule.add_query_provider and the
+	# The server's own query_source hook, so GSModule.add_query_provider and the
 	# builtin commands keep working exactly as they did when this lived inside
 	# GameSpice Server. Duck-typed on that side; a plain assignment on this one.
 	server.query_source = source
 
-	return DotResult.success(source)
+	return GSResult.success(source)
 
 
-func _open_query(config: DotServerConfig) -> int:
+func _open_query(config: GSServerConfig) -> int:
 	if config.effective_query_port() <= 0:
 		# A server with no fixed port (a peer-to-peer session) has nothing to
 		# derive a query port from, and a listener on a port nobody was told about
 		# is one nobody can find.
-		DotLog.info(
+		GSLog.info(
 			CHANNEL,
 			"query listener disabled: set query_port, there is no fixed game port "
 			+ "to derive one from"
@@ -188,9 +188,9 @@ func _open_query(config: DotServerConfig) -> int:
 		return 0
 
 	if query_ref == null:
-		query_ref = DotNodeRef.of_created(&"Query", DotQueryServer)
+		query_ref = GSNodeRef.of_created(&"Query", GSQueryServer)
 
-	query = query_ref.resolve_or_null(self, CHANNEL) as DotQueryServer
+	query = query_ref.resolve_or_null(self, CHANNEL) as GSQueryServer
 	if query == null:
 		return 0
 
@@ -198,7 +198,7 @@ func _open_query(config: DotServerConfig) -> int:
 
 	var result := query.open()
 	if not result.ok:
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL,
 			"could not open the query listener",
 			{"detail": result.error.message}
@@ -209,12 +209,12 @@ func _open_query(config: DotServerConfig) -> int:
 	return config.effective_query_port()
 
 
-func _open_a2s(config: DotServerConfig) -> int:
+func _open_a2s(config: GSServerConfig) -> int:
 	if not config.a2s_enabled:
 		return 0
 
 	if config.effective_a2s_port() <= 0:
-		DotLog.info(
+		GSLog.info(
 			CHANNEL,
 			"A2S disabled: set a2s_port, there is no fixed game port to derive "
 			+ "one from"
@@ -222,9 +222,9 @@ func _open_a2s(config: DotServerConfig) -> int:
 		return 0
 
 	if a2s_ref == null:
-		a2s_ref = DotNodeRef.of_created(&"A2S", DotA2SServer)
+		a2s_ref = GSNodeRef.of_created(&"A2S", GSA2SServer)
 
-	a2s = a2s_ref.resolve_or_null(self, CHANNEL) as DotA2SServer
+	a2s = a2s_ref.resolve_or_null(self, CHANNEL) as GSA2SServer
 	if a2s == null:
 		return 0
 
@@ -243,7 +243,7 @@ func _open_a2s(config: DotServerConfig) -> int:
 
 	var result := a2s.open()
 	if not result.ok:
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL, "could not open the A2S listener", {"detail": result.error.message}
 		)
 		return 0
@@ -274,12 +274,12 @@ func _register_console() -> void:
 		"sv_query_app",
 		app_url,
 		"The app's URL segment, reported as the game's name in a listing.",
-		DotConVar.FLAG_ARCHIVE | DotConVar.FLAG_NOTIFY
+		GSConVar.FLAG_ARCHIVE | GSConVar.FLAG_NOTIFY
 	)
 
 	console.command(
 		"query_status",
-		func(ctx: DotCmdContext) -> void:
+		func(ctx: GSCmdContext) -> void:
 			ctx.reply("[dot query]")
 			if query != null:
 				ctx.reply_lines(query.describe_lines())
@@ -306,14 +306,14 @@ func _register_console() -> void:
 
 	console.command(
 		"query_dump",
-		func(ctx: DotCmdContext) -> void:
+		func(ctx: GSCmdContext) -> void:
 			# Forced, so an operator checking what a provider contributes sees the
 			# current answer rather than one cached up to a second ago — which is
 			# exactly the difference they are looking at.
 			var snap := source.snapshot(true)
 			ctx.reply(JSON.stringify(snap.to_full_dict(), "  ")),
 		"Print the full query response, as a querier would receive it.",
-		DotAdminFlags.GENERIC
+		GSAdminFlags.GENERIC
 	)
 
 

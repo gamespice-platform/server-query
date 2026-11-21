@@ -17,7 +17,7 @@ Two protocols, either or both, chosen by an operator:
 That last row is the only reason A2S is here, and it is a good enough one. Every
 server-list site, chat bot and uptime monitor speaks A2S and nothing else.
 
-Both answer from the same `DotQuerySnapshot`, so they never disagree, and by default
+Both answer from the same `GSQuerySnapshot`, so they never disagree, and by default
 both listen on **one UDP socket on the game port** — the only port a tracker will
 try. They are told apart by the first four bytes: `FF FF FF FF` is A2S, `DQP1` is
 this.
@@ -40,11 +40,11 @@ The app slug, the A2S extra-data fields and what the statistics bridge publishes
 exports on the nodes instead of config keys, because they only exist in this addon:
 
 ```gdscript
-host.app_url = "fc"              # DotQueryHost
-a2s.steam_id = 0                    # DotA2SServer, 0 omits the field
+host.app_url = "fc"              # GSQueryHost
+a2s.steam_id = 0                    # GSA2SServer, 0 omits the field
 a2s.spectator_port = 0
 a2s.game_id = 0
-stats.publish_players = false       # DotQueryStats
+stats.publish_players = false       # GSQueryStats
 stats.player_key_format = ""        # required before a player row is published
 ```
 
@@ -53,7 +53,7 @@ protocol off stops it answering without closing the socket, so it comes back wit
 the port moving under whatever was polling it. `query_status` shows both;
 `query_dump` prints the response a querier would get.
 
-**On the game port, behind GameSpice Server's default transport (`DotTransportDual`), both protocols share the transport's UDP socket**: `share_udp_port` registers them on its demux and nothing binds a second socket. Only a UDP transport that does not share (plain ENet), or another process, still holds the port so that the bind fails, and the log says so. Then set `query_port` to a free one — and know that most trackers will not look there.
+**On the game port, behind GameSpice Server's default transport (`GSTransportDual`), both protocols share the transport's UDP socket**: `share_udp_port` registers them on its demux and nothing binds a second socket. Only a UDP transport that does not share (plain ENet), or another process, still holds the port so that the bind fails, and the log says so. Then set `query_port` to a free one — and know that most trackers will not look there.
 
 ---
 
@@ -334,7 +334,7 @@ to make an exception.
 
 ### `game`
 
-Whatever a `DotQueryProvider` contributes — see below. Empty when nothing does.
+Whatever a `GSQueryProvider` contributes — see below. Empty when nothing does.
 
 ### `auth`
 
@@ -452,13 +452,13 @@ per-team scores, the next map, a lobby's ready count, how much of a match is lef
 has historically smuggled it into the keywords string as `r3,t1:8,t2:5` and hoped.
 
 ```gdscript
-class FcQuery extends DotQueryProvider:
-    var match_state: DotMatchState
+class FcQuery extends GSQueryProvider:
+    var match_state: GSMatchState
 
     func _provider_name() -> String:
         return "fc"
 
-    func _contribute(snapshot: DotQuerySnapshot) -> void:
+    func _contribute(snapshot: GSQuerySnapshot) -> void:
         snapshot.info["bots"] = match_state.bot_count()
         snapshot.contribute_game({
             "phase": match_state.phase_name(),
@@ -469,7 +469,7 @@ class FcQuery extends DotQueryProvider:
 
 var provider := FcQuery.new()
 provider.match_state = state
-DotRegistry.get_service(&"dot_query_source").add_provider(provider)
+GSRegistry.get_service(&"dot_query_source").add_provider(provider)
 ```
 
 Any object with `_contribute(snapshot)` works, so a game can use a `Node` it already

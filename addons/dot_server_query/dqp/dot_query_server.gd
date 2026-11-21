@@ -1,10 +1,10 @@
 @tool
-class_name DotQueryServer
+class_name GSQueryServer
 extends Node
 
-## The dot query protocol: sections asked for à la carte. See [DotQueryProtocol] for the wire format.
+## The dot query protocol: sections asked for à la carte. See [GSQueryProtocol] for the wire format.
 ## Every UDP query is challenged with an address-bound cookie first; revisions make polling nearly free.
-## With [member DotServerConfig.query_websocket] on, a browser can use it as JSON. Registered as [code]dot_query_server[/code].
+## With [member GSServerConfig.query_websocket] on, a browser can use it as JSON. Registered as [code]dot_query_server[/code].
 
 const CHANNEL := "query"
 const SERVICE := &"dot_query_server"
@@ -23,9 +23,9 @@ const MAX_WEBSOCKET_REQUEST_BYTES := 4096
 
 signal query_answered(address: String, sections: PackedStringArray)
 
-var server: DotServer = null
-var source: DotQuerySource = null
-var challenge: DotQueryChallenge = null
+var server: GSServer = null
+var source: GSQuerySource = null
+var challenge: GSQueryChallenge = null
 
 var _udp: PacketPeerUDP = null
 ## True when the game transport owns the UDP port and hands query datagrams over.
@@ -34,9 +34,9 @@ var _tcp: TCPServer = null
 var _ws_clients: Array[Dictionary] = []
 
 ## The A2S responder sharing this socket, when both are on the same port.
-var _a2s: DotA2SServer = null
+var _a2s: GSA2SServer = null
 
-var _limiter: DotQueryLimiter = null
+var _limiter: GSQueryLimiter = null
 var _next_response_id: int = 1
 
 var _answered: int = 0
@@ -45,27 +45,27 @@ var _challenged: int = 0
 var _refused: int = 0
 
 
-func setup(p_server: DotServer, p_source: DotQuerySource) -> void:
+func setup(p_server: GSServer, p_source: GSQuerySource) -> void:
 	server = p_server
 	source = p_source
-	challenge = DotQueryChallenge.new(server.config.query_challenge_ttl_sec)
+	challenge = GSQueryChallenge.new(server.config.query_challenge_ttl_sec)
 
-	_limiter = DotQueryLimiter.new(
+	_limiter = GSQueryLimiter.new(
 		server.config.query_rate_per_second, server.config.query_rate_burst
 	)
 
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 
 
 func _exit_tree() -> void:
 	close()
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
-func open() -> DotResult:
-	if not DotPlatform.can_listen():
-		return DotResult.fail(
-			DotError.CODE_UNSUPPORTED, "This platform cannot listen for connections."
+func open() -> GSResult:
+	if not GSPlatform.can_listen():
+		return GSResult.fail(
+			GSError.CODE_UNSUPPORTED, "This platform cannot listen for connections."
 		)
 
 	var config := server.config
@@ -76,18 +76,18 @@ func open() -> DotResult:
 	if server.has_method("share_udp_port") \
 			and server.share_udp_port(port, _claims, handle_datagram):
 		_shared = true
-		DotLog.info(CHANNEL, "query listening", {"port": port, "shared_with": "enet"})
+		GSLog.info(CHANNEL, "query listening", {"port": port, "shared_with": "enet"})
 		if config.query_websocket:
 			_open_websocket()
 		set_process(true)
-		return DotResult.success(port)
+		return GSResult.success(port)
 
 	_udp = PacketPeerUDP.new()
 	var err := _udp.bind(port, config.effective_query_bind_address())
 
 	if err != OK:
 		_udp = null
-		return DotResult.failure(DotError.from_engine(
+		return GSResult.failure(GSError.from_engine(
 			err, "binding the query port %d" % port
 		)).wrap(
 			# A demuxing transport shared the port above, so this is one that does
@@ -97,13 +97,13 @@ func open() -> DotResult:
 			+ "plain ENet, or another process); set query_port to a free one."
 		)
 
-	DotLog.info(CHANNEL, "query listening", {"port": port})
+	GSLog.info(CHANNEL, "query listening", {"port": port})
 
 	if config.query_websocket:
 		_open_websocket()
 
 	set_process(true)
-	return DotResult.success(port)
+	return GSResult.success(port)
 
 
 func _open_websocket() -> void:
@@ -114,24 +114,24 @@ func _open_websocket() -> void:
 
 	if err != OK:
 		_tcp = null
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL,
 			"could not open the query WebSocket port",
 			{"port": port, "detail": error_string(err)}
 		)
 		return
 
-	DotLog.info(CHANNEL, "query WebSocket listening", {"port": port})
+	GSLog.info(CHANNEL, "query WebSocket listening", {"port": port})
 
 
 ## Hands A2S datagrams arriving on this socket to the A2S responder.
 ## The protocols are told apart by their first four bytes, so one game port serves both.
-func attach_a2s(a2s: DotA2SServer) -> void:
+func attach_a2s(a2s: GSA2SServer) -> void:
 	_a2s = a2s
 	# One secret for both, so an operator reading `query_status` sees one challenge
 	# window rather than two that expire at different times.
 	a2s.challenge = challenge
-	DotLog.info(
+	GSLog.info(
 		CHANNEL,
 		"A2S sharing the query socket",
 		{"port": server.config.effective_query_port()}
@@ -165,8 +165,8 @@ func _claims(data: PackedByteArray) -> bool:
 	if data.is_empty():
 		return false
 	if data[0] == 0xFF:
-		return DotA2SServer.looks_like_a2s(data)
-	return data[0] == 0x44 and DotQueryProtocol.looks_like_dqp(data)
+		return GSA2SServer.looks_like_a2s(data)
+	return data[0] == 0x44 and GSQueryProtocol.looks_like_dqp(data)
 
 
 ## Whether queries are being answered right now.
@@ -206,55 +206,55 @@ func handle_datagram(
 ) -> Array[PackedByteArray]:
 	var none: Array[PackedByteArray] = []
 
-	if _a2s != null and DotA2SServer.looks_like_a2s(data):
+	if _a2s != null and GSA2SServer.looks_like_a2s(data):
 		return _a2s.handle_datagram(data, address, port)
 
 	if not is_answering():
 		return none
 
-	if data.size() > DotQueryProtocol.MAX_REQUEST_BYTES:
+	if data.size() > GSQueryProtocol.MAX_REQUEST_BYTES:
 		_refused += 1
 		return none
 
-	if not DotQueryProtocol.looks_like_dqp(data):
+	if not GSQueryProtocol.looks_like_dqp(data):
 		# Silence rather than an error reply. Answering an unrecognised datagram
 		# tells a scanner something and gives a spoofer a response to aim.
 		return none
 
-	if not _limiter.allow(DotBanManager.normalise_address(address)):
+	if not _limiter.allow(GSBanManager.normalise_address(address)):
 		_refused += 1
 		return none
 
-	var parsed := DotQueryProtocol.parse(data)
+	var parsed := GSQueryProtocol.parse(data)
 	if not parsed.ok:
 		return none
 
 	var packet: Dictionary = parsed.value
-	var checked := DotQueryProtocol.check_request(packet)
+	var checked := GSQueryProtocol.check_request(packet)
 	if not checked.ok:
 		return none
 
 	var txn := int(packet["txn"])
 
 	match int(packet["type"]):
-		DotQueryProtocol.TYPE_PING:
-			return DotQueryProtocol.build(
-				DotQueryProtocol.TYPE_PONG, txn, 0, PackedByteArray()
+		GSQueryProtocol.TYPE_PING:
+			return GSQueryProtocol.build(
+				GSQueryProtocol.TYPE_PONG, txn, 0, PackedByteArray()
 			)
 
-		DotQueryProtocol.TYPE_CHALLENGE_REQUEST:
+		GSQueryProtocol.TYPE_CHALLENGE_REQUEST:
 			_challenged += 1
-			return DotQueryProtocol.build_challenge(
+			return GSQueryProtocol.build_challenge(
 				txn, challenge.issue(address, port)
 			)
 
-		DotQueryProtocol.TYPE_QUERY:
+		GSQueryProtocol.TYPE_QUERY:
 			if not challenge.verify(address, port, int(packet["challenge"])):
 				# The whole anti-amplification control: an unchallenged query is
 				# answered with a cookie and nothing else, and that reply is
 				# smaller than the request that asked for it.
 				_challenged += 1
-				return DotQueryProtocol.build_challenge(
+				return GSQueryProtocol.build_challenge(
 					txn, challenge.issue(address, port)
 				)
 
@@ -272,21 +272,21 @@ func _answer(
 	var body := _build_body(request, sections)
 
 	var accepts_gzip := bool(
-		int(packet.get("flags", 0)) & DotQueryProtocol.FLAG_ACCEPT_GZIP
+		int(packet.get("flags", 0)) & GSQueryProtocol.FLAG_ACCEPT_GZIP
 	)
-	var encoded := DotQueryProtocol.encode_body(body, accepts_gzip)
+	var encoded := GSQueryProtocol.encode_body(body, accepts_gzip)
 
 	var payload: PackedByteArray = encoded[0]
-	if payload.size() > DotQueryProtocol.MAX_RESPONSE_BYTES:
+	if payload.size() > GSQueryProtocol.MAX_RESPONSE_BYTES:
 		# Refused rather than truncated. A body cut off mid-JSON reaches the
 		# querier as a parse failure they will read as a broken server, and the
 		# fix — ask for fewer sections — is something only they can do.
 		_refused += 1
-		return DotQueryProtocol.build_error(
+		return GSQueryProtocol.build_error(
 			txn,
-			DotError.CODE_QUOTA,
+			GSError.CODE_QUOTA,
 			"Response too large (%d bytes, limit %d). Ask for fewer sections."
-				% [payload.size(), DotQueryProtocol.MAX_RESPONSE_BYTES]
+				% [payload.size(), GSQueryProtocol.MAX_RESPONSE_BYTES]
 		)
 
 	var response_id := _next_response_id
@@ -296,8 +296,8 @@ func _answer(
 	source.note_query()
 	query_answered.emit(address, sections)
 
-	return DotQueryProtocol.build(
-		DotQueryProtocol.TYPE_RESULT,
+	return GSQueryProtocol.build(
+		GSQueryProtocol.TYPE_RESULT,
 		txn,
 		int(packet.get("challenge", 0)),
 		payload,
@@ -326,7 +326,7 @@ static func _requested_sections(request: Dictionary) -> PackedStringArray:
 	var raw: Variant = request.get("sections")
 
 	if raw == null or typeof(raw) != TYPE_ARRAY:
-		return PackedStringArray([DotQuerySnapshot.SECTION_INFO])
+		return PackedStringArray([GSQuerySnapshot.SECTION_INFO])
 
 	var out := PackedStringArray()
 	for entry in (raw as Array):
@@ -337,7 +337,7 @@ static func _requested_sections(request: Dictionary) -> PackedStringArray:
 			out.append(name)
 
 	if out.is_empty():
-		return PackedStringArray([DotQuerySnapshot.SECTION_INFO])
+		return PackedStringArray([GSQuerySnapshot.SECTION_INFO])
 
 	return out
 
@@ -439,13 +439,13 @@ func _answer_websocket(client: Dictionary, text: String) -> void:
 
 	if not is_answering():
 		_send_websocket(client, {
-			"code": DotError.CODE_STATE, "error": "Queries are disabled."
+			"code": GSError.CODE_STATE, "error": "Queries are disabled."
 		})
 		return
 
-	if not _limiter.allow(DotBanManager.normalise_address(address)):
+	if not _limiter.allow(GSBanManager.normalise_address(address)):
 		_refused += 1
-		_send_websocket(client, {"code": DotError.CODE_RATE_LIMITED, "error": "Slow down."})
+		_send_websocket(client, {"code": GSError.CODE_RATE_LIMITED, "error": "Slow down."})
 		return
 
 	var request: Dictionary = {}
@@ -454,7 +454,7 @@ func _answer_websocket(client: Dictionary, text: String) -> void:
 		var parsed: Variant = JSON.parse_string(text)
 		if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 			_send_websocket(client, {
-				"code": DotError.CODE_PARSE, "error": "Send a JSON object."
+				"code": GSError.CODE_PARSE, "error": "Send a JSON object."
 			})
 			return
 		request = parsed as Dictionary

@@ -6,7 +6,7 @@ extends "res://examples/query_selftest_mid.gd"
 
 
 func _ready() -> void:
-	var config := DotServerConfig.new()
+	var config := GSServerConfig.new()
 
 	# Ephemeral, so this never collides with a real server or a second copy of itself.
 	# The query port is explicit because an ephemeral game port has nothing to derive one from.
@@ -27,7 +27,7 @@ func _ready() -> void:
 	config.tags = PackedStringArray(["example", "dev"])
 	# This run's own directory, emptied first: the audit log appends, and every run had
 	# added its lines to the last one's for as long as the suite existed.
-	DotPaths.remove_tree("user://queryexample")
+	GSPaths.remove_tree("user://queryexample")
 	config.admins_path = "user://queryexample/admins.json"
 	config.bans_path = "user://queryexample/bans.json"
 	config.audit_log_path = "user://queryexample/audit.jsonl"
@@ -39,7 +39,7 @@ func _ready() -> void:
 	config.startup_config = ""
 	config.autoexec_config = ""
 
-	server = DotServer.new()
+	server = GSServer.new()
 	server.name = "Server"
 	server.config = config
 	server.config_file = ""
@@ -47,22 +47,22 @@ func _ready() -> void:
 	add_child(server)
 
 	# The bridge is built before the host so the host finds it on the way up.
-	# Nothing here is a DotStats* identifier: the tracker is duck-typed, and the
+	# Nothing here is a GSStats* identifier: the tracker is duck-typed, and the
 	# self-test hands it a stand-in with the same shape further down.
-	stats_bridge = DotQueryStats.new()
+	stats_bridge = GSQueryStats.new()
 	stats_bridge.name = "QueryStats"
 	stats_bridge.publish_schema = true
 	stats_bridge.publish_totals = true
 	add_child(stats_bridge)
 
-	host = DotQueryHost.new()
+	host = GSQueryHost.new()
 	host.name = "QueryHost"
 	host.app_url = APP_URL
 	# By path rather than through the registry: the server has not booted yet, so
 	# it has not registered itself, and this exercises the ordering a scene
 	# actually has. The registry default is covered by the wait in _ready.
-	host.server_ref = DotNodeRef.of_path(NodePath("../Server"))
-	host.stats_ref = DotNodeRef.of_path(NodePath("../QueryStats"))
+	host.server_ref = GSNodeRef.of_path(NodePath("../Server"))
+	host.stats_ref = GSNodeRef.of_path(NodePath("../QueryStats"))
 	add_child(host)
 
 	var booted := await server.boot()
@@ -80,7 +80,7 @@ func _ready() -> void:
 	timer.wait_time = 30.0
 	timer.autostart = true
 	timer.timeout.connect(func() -> void:
-		DotLog.info("example", "still running", host.describe()))
+		GSLog.info("example", "still running", host.describe()))
 	add_child(timer)
 
 
@@ -90,7 +90,7 @@ func _should_selftest() -> bool:
 		return true
 	if args.has("--serve"):
 		return false
-	return DotPlatform.is_headless()
+	return GSPlatform.is_headless()
 
 
 func _run_selftest() -> void:
@@ -137,7 +137,7 @@ func _test_host() -> void:
 	var refused := server.attach_query_host(RefCounted.new())
 	_check("a second host is refused", not refused.ok)
 
-	var bare := DotServer.new()
+	var bare := GSServer.new()
 	var dummy := Node.new()
 	var not_a_host := bare.attach_query_host(dummy)
 	_check("a host without open() is refused", not not_a_host.ok)
@@ -212,7 +212,7 @@ func _test_query() -> void:
 
 	# The query listeners bind their own interface when told to: behind a reverse proxy the GAME
 	# transport sits on loopback and UDP cannot be proxied. Empty means "wherever the game is".
-	var bind_cfg := DotServerConfig.new()
+	var bind_cfg := GSServerConfig.new()
 	bind_cfg.bind_address = "127.0.0.1"
 	_check("query binds the game interface by default",
 		bind_cfg.effective_query_bind_address() == "127.0.0.1")
@@ -270,7 +270,7 @@ func _test_query() -> void:
 	_test_query_provider(source)
 
 
-func _test_query_provider(source: DotQuerySource) -> void:
+func _test_query_provider(source: GSQuerySource) -> void:
 	# A provider is the only thing that can know a bot count, and it must reach the
 	# backbone stats report as well as the query response.
 	var provider := ExampleQueryProvider.new()
@@ -335,13 +335,13 @@ func _test_query_protocol() -> void:
 	# An unchallenged query is answered with a cookie and nothing else. That reply
 	# is smaller than the request, which is what makes the protocol useless as an
 	# amplifier.
-	var unchallenged := DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_QUERY, 1, 0, {"sections": ["info", "players"]}
+	var unchallenged := GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_QUERY, 1, 0, {"sections": ["info", "players"]}
 	)
 	var replies := query.handle_datagram(unchallenged, address, port)
 	_check("an unchallenged query gets a challenge", replies.size() == 1)
 
-	var challenge_packet := DotQueryProtocol.parse(replies[0])
+	var challenge_packet := GSQueryProtocol.parse(replies[0])
 	_check("challenge parses", challenge_packet.ok)
 	var cookie := int((challenge_packet.value as Dictionary)["challenge"])
 	_check("challenge is not zero", cookie != 0)
@@ -357,18 +357,18 @@ func _test_query_protocol() -> void:
 	_check("a cookie is accepted from its own address",
 		query.challenge.verify(address, port, cookie))
 
-	var challenged := DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_QUERY, 2, cookie, {"sections": ["info", "players"]}
+	var challenged := GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_QUERY, 2, cookie, {"sections": ["info", "players"]}
 	)
 	var answer := query.handle_datagram(challenged, address, port)
 	_check("a challenged query is answered", answer.size() >= 1)
 
-	var body := DotQueryProtocol.reassemble(answer)
+	var body := GSQueryProtocol.reassemble(answer)
 	_check("the answer reassembles", body.ok)
 
 	var result: Dictionary = body.value
 	_check("the answer echoes the transaction",
-		int((DotQueryProtocol.parse(answer[0]).value as Dictionary)["txn"]) == 2)
+		int((GSQueryProtocol.parse(answer[0]).value as Dictionary)["txn"]) == 2)
 	_check("the answer carries the info section",
 		(result.get("sections", {}) as Dictionary).has("info"))
 	_check("the answer carries only what was asked for",
@@ -376,10 +376,10 @@ func _test_query_protocol() -> void:
 
 	# Conditional polling: a querier holding the current revision gets told so.
 	var rev := int(result.get("rev", 0))
-	var conditional := DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_QUERY, 3, cookie, {"if_rev": rev}
+	var conditional := GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_QUERY, 3, cookie, {"if_rev": rev}
 	)
-	var unchanged := DotQueryProtocol.reassemble(
+	var unchanged := GSQueryProtocol.reassemble(
 		query.handle_datagram(conditional, address, port)
 	)
 	_check("a matching revision replies 'unchanged'",
@@ -391,13 +391,13 @@ func _test_query_protocol() -> void:
 	_test_query_protocol_limits(query, address, port, challenged)
 
 
-func _test_query_protocol_junk(query: DotQueryServer, address: String, port: int, cookie: int) -> void:
+func _test_query_protocol_junk(query: GSQueryServer, address: String, port: int, cookie: int) -> void:
 	# An unknown section is reported rather than dropped, or a querier who
 	# misspelled one concludes the server has no players.
-	var misspelled := DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_QUERY, 4, cookie, {"sections": ["playerz"]}
+	var misspelled := GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_QUERY, 4, cookie, {"sections": ["playerz"]}
 	)
-	var reported := DotQueryProtocol.reassemble(
+	var reported := GSQueryProtocol.reassemble(
 		query.handle_datagram(misspelled, address, port)
 	)
 	_check("an unknown section is reported",
@@ -405,8 +405,8 @@ func _test_query_protocol_junk(query: DotQueryServer, address: String, port: int
 
 	# A response arriving on the listening socket is never answered: doing so is
 	# how a server becomes one leg of a reflection loop between two servers.
-	var reflected := DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_RESULT, 5, cookie, {}
+	var reflected := GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_RESULT, 5, cookie, {}
 	)
 	_check("a response is not answered",
 		query.handle_datagram(reflected, address, port).is_empty())
@@ -416,18 +416,18 @@ func _test_query_protocol_junk(query: DotQueryServer, address: String, port: int
 		).is_empty())
 
 	var oversized := PackedByteArray()
-	oversized.resize(DotQueryProtocol.MAX_REQUEST_BYTES + 1)
+	oversized.resize(GSQueryProtocol.MAX_REQUEST_BYTES + 1)
 	_check("an oversized request is ignored",
 		query.handle_datagram(oversized, address, port).is_empty())
 
 	# Ping is answered without a challenge because the reply is smaller than the
 	# request; there is nothing to amplify.
-	var ping := DotQueryProtocol.build_request(DotQueryProtocol.TYPE_PING, 6, 0)
+	var ping := GSQueryProtocol.build_request(GSQueryProtocol.TYPE_PING, 6, 0)
 	var pong := query.handle_datagram(ping, address, port)
 	_check("ping is answered",
 		pong.size() == 1
-		and int((DotQueryProtocol.parse(pong[0]).value as Dictionary)["type"])
-			== DotQueryProtocol.TYPE_PONG)
+		and int((GSQueryProtocol.parse(pong[0]).value as Dictionary)["type"])
+			== GSQueryProtocol.TYPE_PONG)
 
 
 func _test_query_protocol_fragments(cookie: int) -> void:
@@ -440,61 +440,61 @@ func _test_query_protocol_fragments(cookie: int) -> void:
 	# payload is compressed". Sharing one bit made the header unparseable without
 	# already knowing which direction the packet was going.
 	_check("a request advertises gzip without claiming to be gzipped",
-		(DotQueryProtocol.parse(DotQueryProtocol.build_request(
-			DotQueryProtocol.TYPE_QUERY, 9, cookie, {}, true
-		)).value as Dictionary)["flags"] == DotQueryProtocol.FLAG_ACCEPT_GZIP)
+		(GSQueryProtocol.parse(GSQueryProtocol.build_request(
+			GSQueryProtocol.TYPE_QUERY, 9, cookie, {}, true
+		)).value as Dictionary)["flags"] == GSQueryProtocol.FLAG_ACCEPT_GZIP)
 
-	var claims_gzip := DotQueryProtocol.build(
-		DotQueryProtocol.TYPE_QUERY, 10, cookie,
-		"not actually gzip".to_utf8_buffer(), DotQueryProtocol.FLAG_GZIP
+	var claims_gzip := GSQueryProtocol.build(
+		GSQueryProtocol.TYPE_QUERY, 10, cookie,
+		"not actually gzip".to_utf8_buffer(), GSQueryProtocol.FLAG_GZIP
 	)[0]
 	_check("a request claiming to be compressed is refused",
-		not DotQueryProtocol.parse(claims_gzip).ok)
+		not GSQueryProtocol.parse(claims_gzip).ok)
 
-	var plain := DotQueryProtocol.encode_body(big, false)
+	var plain := GSQueryProtocol.encode_body(big, false)
 	_check("a large body is not compressed when gzip is not accepted",
 		int(plain[1]) == 0)
-	var fragments := DotQueryProtocol.build(
-		DotQueryProtocol.TYPE_RESULT, 7, 0, plain[0] as PackedByteArray,
+	var fragments := GSQueryProtocol.build(
+		GSQueryProtocol.TYPE_RESULT, 7, 0, plain[0] as PackedByteArray,
 		int(plain[1]), 99
 	)
 	_check("a large body fragments", fragments.size() > 1)
 	_check("every fragment carries the whole header",
-		fragments[fragments.size() - 1].size() > DotQueryProtocol.HEADER_BYTES)
+		fragments[fragments.size() - 1].size() > GSQueryProtocol.HEADER_BYTES)
 
 	var shuffled := fragments.duplicate()
 	shuffled.reverse()
-	var rebuilt := DotQueryProtocol.reassemble(shuffled)
+	var rebuilt := GSQueryProtocol.reassemble(shuffled)
 	_check("fragments reassemble out of order",
 		rebuilt.ok and (rebuilt.value as Dictionary).has("filler"))
 
 	var missing := fragments.duplicate()
 	missing.remove_at(1)
 	_check("a missing fragment is a failure, not a partial body",
-		not DotQueryProtocol.reassemble(missing).ok)
+		not GSQueryProtocol.reassemble(missing).ok)
 
-	var gzipped := DotQueryProtocol.encode_body(big, true)
+	var gzipped := GSQueryProtocol.encode_body(big, true)
 	_check("a large body compresses when gzip is accepted",
-		int(gzipped[1]) & DotQueryProtocol.FLAG_GZIP)
+		int(gzipped[1]) & GSQueryProtocol.FLAG_GZIP)
 	_check("compression actually shrinks it",
 		(gzipped[0] as PackedByteArray).size() < (plain[0] as PackedByteArray).size())
-	var inflated := DotQueryProtocol.reassemble(DotQueryProtocol.build(
-		DotQueryProtocol.TYPE_RESULT, 8, 0, gzipped[0] as PackedByteArray,
+	var inflated := GSQueryProtocol.reassemble(GSQueryProtocol.build(
+		GSQueryProtocol.TYPE_RESULT, 8, 0, gzipped[0] as PackedByteArray,
 		int(gzipped[1]), 100
 	))
 	_check("a compressed body reassembles",
 		inflated.ok and (inflated.value as Dictionary).has("filler"))
 
 
-func _test_query_protocol_limits(query: DotQueryServer, address: String, port: int, challenged: PackedByteArray) -> void:
+func _test_query_protocol_limits(query: GSQueryServer, address: String, port: int, challenged: PackedByteArray) -> void:
 	# Rate limiting, from an address no other check has spent tokens for.
 	var flooder := "203.0.113.200"
 	var flood_port := 42000
 	var flood_cookie := query.challenge.issue(flooder, flood_port)
 	var refused := 0
 	for i in range(40):
-		var req := DotQueryProtocol.build_request(
-			DotQueryProtocol.TYPE_QUERY, 100 + i, flood_cookie
+		var req := GSQueryProtocol.build_request(
+			GSQueryProtocol.TYPE_QUERY, 100 + i, flood_cookie
 		)
 		if query.handle_datagram(req, flooder, flood_port).is_empty():
 			refused += 1
@@ -504,36 +504,36 @@ func _test_query_protocol_limits(query: DotQueryServer, address: String, port: i
 	# one never-evicted bucket per spoofed datagram is the memory-exhaustion target. Small cap keeps the suite quick.
 	var known := "192.0.2.50"
 	query._limiter.max_tracked = 64
-	query.handle_datagram(DotQueryProtocol.build_request(
-		DotQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0), known, 40000)
+	query.handle_datagram(GSQueryProtocol.build_request(
+		GSQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0), known, 40000)
 	for i in range(500):
-		query.handle_datagram(DotQueryProtocol.build_request(
-			DotQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0
+		query.handle_datagram(GSQueryProtocol.build_request(
+			GSQueryProtocol.TYPE_CHALLENGE_REQUEST, 1, 0
 		), "10.9.%d.%d" % [i / 256, i % 256], 40000)
 	_check("forged addresses cannot grow the DQP limiter (%d held)"
 		% query._limiter.tracked_count(), query._limiter.tracked_count() <= 65)
 	_check("an address it already knew is still answered",
-		not query.handle_datagram(DotQueryProtocol.build_request(
-			DotQueryProtocol.TYPE_CHALLENGE_REQUEST, 2, 0), known, 40000).is_empty())
-	query._limiter.max_tracked = DotQueryLimiter.DEFAULT_MAX_TRACKED
+		not query.handle_datagram(GSQueryProtocol.build_request(
+			GSQueryProtocol.TYPE_CHALLENGE_REQUEST, 2, 0), known, 40000).is_empty())
+	query._limiter.max_tracked = GSQueryLimiter.DEFAULT_MAX_TRACKED
 
 	if host.a2s != null:
 		host.a2s._limiter.max_tracked = 64
 		for i in range(500):
 			host.a2s.handle_datagram(
-				_a2s_request(DotA2SServer.REQUEST_PLAYER, false, 0xFFFFFFFF),
+				_a2s_request(GSA2SServer.REQUEST_PLAYER, false, 0xFFFFFFFF),
 				"10.10.%d.%d" % [i / 256, i % 256], 40000
 			)
 		_check("nor the A2S one (%d held)" % host.a2s._limiter.tracked_count(),
 			host.a2s._limiter.tracked_count() <= 65)
-		host.a2s._limiter.max_tracked = DotQueryLimiter.DEFAULT_MAX_TRACKED
+		host.a2s._limiter.max_tracked = GSQueryLimiter.DEFAULT_MAX_TRACKED
 	else:
 		_check("nor the A2S one (no A2S server)", false)
 
 	# A refilled bucket is the same as no bucket, so the table sheds those rather
 	# than waiting on an idle timeout — the base sweep compared the stored count and
 	# never shed a key that had sent one packet.
-	var shed := DotQueryLimiter.new(1000.0, 1.0)
+	var shed := GSQueryLimiter.new(1000.0, 1.0)
 	shed.max_tracked = 8
 	for i in range(8):
 		shed.allow("198.18.0.%d" % i)
@@ -565,7 +565,7 @@ func _test_sections() -> void:
 		snap.rotation.has("games"))
 	_check("build reports the engine", str(snap.build.get("engine", "")).begins_with("Godot"))
 	_check("build reports the query protocol version",
-		int(snap.build.get("query", 0)) == DotQueryProtocol.VERSION)
+		int(snap.build.get("query", 0)) == GSQueryProtocol.VERSION)
 	_check("perf reports a tickrate",
 		int(snap.perf.get("tickrate", 0)) == server.config.tickrate)
 	# No team roster is registered here, so the section is empty rather than
@@ -584,7 +584,7 @@ func _test_sections() -> void:
 	# that would destroy it: every number in it differs on every rebuild, so a
 	# hash including it would mint a new revision every single second.
 	_check("perf is declared volatile",
-		DotQuerySnapshot.is_volatile(DotQuerySnapshot.SECTION_PERF))
+		GSQuerySnapshot.is_volatile(GSQuerySnapshot.SECTION_PERF))
 	var rev_one := source.snapshot(true).rev
 	var rev_two := source.snapshot(true).rev
 	_check("the revision survives two rebuilds with perf in them", rev_one == rev_two)
@@ -614,7 +614,7 @@ func _test_stats() -> void:
 		(source.snapshot(true).stats as Dictionary).has("server"))
 
 	# Duck-typed: this stand-in has the same shape GameSpice Stats' tracker has, and
-	# nothing in the addon names a DotStats* identifier. The real addon is linked
+	# nothing in the addon names a GSStats* identifier. The real addon is linked
 	# into this project, so the shape is checked against it below.
 	var tracker := FakeTracker.new()
 	tracker.add("p-0000000001", {"kills": 4.0, "deaths": 1.0})

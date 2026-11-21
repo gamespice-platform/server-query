@@ -10,7 +10,7 @@
 # FILE by Git on Windows without Developer Mode, so Godot finds a 30-byte file
 # where an addon should be and every class_name in it fails to resolve.
 #
-# dot_stats is OPTIONAL — the bridge to it names no DotStats* identifier. It is
+# dot_stats is OPTIONAL — the bridge to it names no GSStats* identifier. It is
 # linked here so the self-test runs against the real addon.
 /addons/dot_core
 /addons/dot_server

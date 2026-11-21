@@ -1,9 +1,9 @@
 @tool
-class_name DotQueryStats
+class_name GSQueryStats
 extends Node
 
 ## Publishes declared statistics through the query protocol, optionally.
-## Duck-typed (players(), session_values(), schema): naming a [code]DotStats*[/code] class would break parsing without GameSpice Stats.
+## Duck-typed (players(), session_values(), schema): naming a [code]GSStats*[/code] class would break parsing without GameSpice Stats.
 ## Sections: server, game (default on), players (default off; see [member player_key_format]).
 
 const CHANNEL := "query"
@@ -15,7 +15,7 @@ const MAX_PLAYER_ROWS := 64
 @export_group("Source")
 
 ## Where to find the statistics tracker. Duck-typed; unresolved, the stats sections are absent.
-@export var tracker_ref: DotNodeRef = null
+@export var tracker_ref: GSNodeRef = null
 
 @export_group("What to publish")
 
@@ -38,9 +38,9 @@ const MAX_PLAYER_ROWS := 64
 
 ## An object that maps a session to its statistics key itself, when no format can.
 ## Duck-typed: [code]_query_stats_key(session) -> String[/code]. Wins over [member player_key_format].
-@export var resolver_ref: DotNodeRef = null
+@export var resolver_ref: GSNodeRef = null
 
-var server: DotServer = null
+var server: GSServer = null
 
 var _tracker: Object = null
 var _resolver: Object = null
@@ -50,9 +50,9 @@ var _sessions_seen: int = 0
 var _queries_answered: int = 0
 
 
-func setup(p_server: DotServer) -> void:
+func setup(p_server: GSServer) -> void:
 	server = p_server
-	DotRegistry.register(SERVICE, self)
+	GSRegistry.register(SERVICE, self)
 
 	# resolve_or_null rather than resolve: both of these are optional, and a
 	# missing one must leave the section absent rather than log an error that
@@ -63,7 +63,7 @@ func setup(p_server: DotServer) -> void:
 		_resolver = resolver_ref.resolve_or_null(self, CHANNEL)
 
 	if _tracker != null and not _looks_like_tracker(_tracker):
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL,
 			"the query stats tracker has the wrong shape and is ignored",
 			{"got": _tracker.get_class()}
@@ -74,7 +74,7 @@ func setup(p_server: DotServer) -> void:
 		# Named at boot rather than left to produce an empty section. An operator
 		# who ticked publish_players and got nothing would reasonably conclude the
 		# bridge is broken; it is doing exactly what it was told.
-		DotLog.warn(
+		GSLog.warn(
 			CHANNEL,
 			"publish_players is on but no player_key_format or resolver is set: "
 			+ "no player statistics will be published",
@@ -83,19 +83,19 @@ func setup(p_server: DotServer) -> void:
 
 
 func _exit_tree() -> void:
-	DotRegistry.unregister_instance(SERVICE, self)
+	GSRegistry.unregister_instance(SERVICE, self)
 
 
 ## Points the bridge at a tracker directly, for a game that has one in hand.
-func attach(tracker: Object) -> DotResult:
+func attach(tracker: Object) -> GSResult:
 	if tracker != null and not _looks_like_tracker(tracker):
-		return DotResult.fail(
-			DotError.CODE_INVALID,
+		return GSResult.fail(
+			GSError.CODE_INVALID,
 			"That is not a statistics tracker.",
 			"needs players() and session_values(); got a %s" % tracker.get_class()
 		)
 	_tracker = tracker
-	return DotResult.success(tracker)
+	return GSResult.success(tracker)
 
 
 func has_tracker() -> bool:
@@ -111,7 +111,7 @@ func note_query() -> void:
 
 
 ## Builds the [code]stats[/code] section: schema, server counters and game totals.
-func build_stats(snapshot: DotQuerySnapshot) -> Dictionary:
+func build_stats(snapshot: GSQuerySnapshot) -> Dictionary:
 	var out := {"server": _server_stats()}
 
 	if not has_tracker():
@@ -127,7 +127,7 @@ func build_stats(snapshot: DotQuerySnapshot) -> Dictionary:
 
 
 ## Builds the [code]player_stats[/code] section. Empty unless fully configured.
-func build_player_stats(snapshot: DotQuerySnapshot) -> Array:
+func build_player_stats(snapshot: GSQuerySnapshot) -> Array:
 	if not publish_players or not has_tracker() or server == null:
 		return []
 	if player_key_format == "" and _resolver == null:
@@ -137,7 +137,7 @@ func build_player_stats(snapshot: DotQuerySnapshot) -> Array:
 
 	for session in server.playing_sessions():
 		if out.size() >= MAX_PLAYER_ROWS:
-			snapshot.mark_truncated(DotQuerySnapshot.SECTION_PLAYER_STATS)
+			snapshot.mark_truncated(GSQuerySnapshot.SECTION_PLAYER_STATS)
 			break
 
 		var key := _key_for(session)
@@ -194,7 +194,7 @@ func _schema_rows() -> Array:
 
 
 ## Every published stat, summed across the players the tracker is holding.
-func _totals(snapshot: DotQuerySnapshot) -> Dictionary:
+func _totals(snapshot: GSQuerySnapshot) -> Dictionary:
 	var out := {}
 
 	var ids := _published_ids()
@@ -208,7 +208,7 @@ func _totals(snapshot: DotQuerySnapshot) -> Dictionary:
 			# A tracker holds players who have left until the next report, so this
 			# walk is not bounded by the player list. Capped, and said so, rather
 			# than letting a long-running server turn every query into a long walk.
-			snapshot.mark_truncated(DotQuerySnapshot.SECTION_STATS)
+			snapshot.mark_truncated(GSQuerySnapshot.SECTION_STATS)
 			break
 		counted += 1
 
@@ -257,7 +257,7 @@ func _values_for(key: String) -> Dictionary:
 	return out
 
 
-func _key_for(session: DotClientSession) -> String:
+func _key_for(session: GSClientSession) -> String:
 	if _resolver != null and is_instance_valid(_resolver) \
 			and _resolver.has_method("_query_stats_key"):
 		return str(_resolver.call("_query_stats_key", session))

@@ -1,4 +1,4 @@
-class_name DotQuerySnapshot
+class_name GSQuerySnapshot
 extends RefCounted
 
 ## What the server looks like from outside, at one moment.

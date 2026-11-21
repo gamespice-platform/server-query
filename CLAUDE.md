@@ -11,9 +11,9 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | Read | Before |
 | --- | --- |
 | [docs/README.md](docs/README.md) | the index |
-| [docs/design.md](docs/design.md) | the GameSpice Server hook, `DotQueryHost`, `DotQuerySource`, snapshot sections, `info.*` fields, `DotQueryStats` |
-| [docs/exposure.md](docs/exposure.md) | the listeners, port sharing, `DotQueryChallenge`, `DotQueryLimiter`, the cache |
-| [docs/a2s.md](docs/a2s.md) | `DotA2SServer` |
+| [docs/design.md](docs/design.md) | the GameSpice Server hook, `GSQueryHost`, `GSQuerySource`, snapshot sections, `info.*` fields, `GSQueryStats` |
+| [docs/exposure.md](docs/exposure.md) | the listeners, port sharing, `GSQueryChallenge`, `GSQueryLimiter`, the cache |
+| [docs/a2s.md](docs/a2s.md) | `GSA2SServer` |
 | [docs/history.md](docs/history.md) | the bugs, and how each looked |
 | [PROTOCOL.md](addons/dot_server_query/PROTOCOL.md) | changing anything on the wire |
 
@@ -22,12 +22,12 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 | Path | What |
 | --- | --- |
 | `addons/dot_server_query/PROTOCOL.md` | the wire spec; enough to write a client in any language |
-| `addons/dot_server_query/host/` | `DotQueryHost`: finds a server, fills its hook, owns the listeners, registers the two commands |
-| `addons/dot_server_query/core/` | `DotQueryChallenge` (stateless address-bound cookies), `DotQueryLimiter`, `DotQuerySnapshot`, `DotQueryProvider` (where a game contributes state) |
-| `addons/dot_server_query/source/` | `DotQuerySource`: builds and caches the snapshot; holds the providers |
-| `addons/dot_server_query/dqp/` | `DotQueryProtocol` (header, flags, fragments, gzip), `DotQueryServer` (UDP, and WebSocket for browsers) |
-| `addons/dot_server_query/a2s/` | `DotA2SServer`: A2S, all of it; off by default |
-| `addons/dot_server_query/stats/` | `DotQueryStats`: the GameSpice Stats bridge; names no `DotStats*` identifier |
+| `addons/dot_server_query/host/` | `GSQueryHost`: finds a server, fills its hook, owns the listeners, registers the two commands |
+| `addons/dot_server_query/core/` | `GSQueryChallenge` (stateless address-bound cookies), `GSQueryLimiter`, `GSQuerySnapshot`, `GSQueryProvider` (where a game contributes state) |
+| `addons/dot_server_query/source/` | `GSQuerySource`: builds and caches the snapshot; holds the providers |
+| `addons/dot_server_query/dqp/` | `GSQueryProtocol` (header, flags, fragments, gzip), `GSQueryServer` (UDP, and WebSocket for browsers) |
+| `addons/dot_server_query/a2s/` | `GSA2SServer`: A2S, all of it; off by default |
+| `addons/dot_server_query/stats/` | `GSQueryStats`: the GameSpice Stats bridge; names no `GSStats*` identifier |
 | `examples/query_selftest.tscn` | the suite; `-- --serve` runs it as a real server instead |
 
 ## Running and testing
@@ -40,9 +40,9 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 
 **The dependency**
 
-- GameSpice Server names nothing here: one hook, `attach_query_host(host: Object)`, and every query field on `DotServer` is `Object` reached by `.call`. Naming a class from here in GameSpice Server would make this addon mandatory. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
-- The query settings (`query_*`, `a2s_*`, `sv_query`, `sv_a2s`, `sv_query_players`) stay on `DotServerConfig` so operators' config files keep working; settings that exist only here are node exports. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
-- `DotQueryHost._ready` waits for `dot_server` on the registry path, because a host beside a server is ready before the server registers. Both boot orders are in the suite. [design](docs/design.md#the-boot-handshake-in-both-directions)
+- GameSpice Server names nothing here: one hook, `attach_query_host(host: Object)`, and every query field on `GSServer` is `Object` reached by `.call`. Naming a class from here in GameSpice Server would make this addon mandatory. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
+- The query settings (`query_*`, `a2s_*`, `sv_query`, `sv_a2s`, `sv_query_players`) stay on `GSServerConfig` so operators' config files keep working; settings that exist only here are node exports. [design](docs/design.md#the-direction-of-the-dependency-is-the-whole-design)
+- `GSQueryHost._ready` waits for `dot_server` on the registry path, because a host beside a server is ready before the server registers. Both boot orders are in the suite. [design](docs/design.md#the-boot-handshake-in-both-directions)
 - GameSpice Team (`dot_team_roster`) and GameSpice Stats are duck-typed; never name their classes. [design](docs/design.md#sections-and-the-two-rules-about-the-revision)
 
 **The snapshot**
@@ -57,7 +57,7 @@ Read the family [CLAUDE.md](../../CLAUDE.md) first; this file is only what is sp
 
 - An unchallenged request gets a cookie and nothing else, smaller than the request; cookies are stateless HMACs bound to address and port; the previous bucket is accepted; a response on the listening socket is never answered. [exposure](docs/exposure.md#the-challenge-is-the-reason-this-is-safe-to-expose)
 - WebSocket has no challenge on purpose: the TCP handshake already proved the address. [exposure](docs/exposure.md#the-challenge-is-the-reason-this-is-safe-to-expose)
-- The per-address limiter must stay bounded (`DotQueryLimiter`, `max_tracked`); its key is an unproved address. [exposure](docs/exposure.md#the-rate-limiter-is-bounded-too)
+- The per-address limiter must stay bounded (`GSQueryLimiter`, `max_tracked`); its key is an unproved address. [exposure](docs/exposure.md#the-rate-limiter-is-bounded-too)
 - `query_cache_sec` is a security control: never rebuild a snapshot per packet. [exposure](docs/exposure.md#the-snapshot-cache-is-a-security-control-not-an-optimisation)
 - On ENet's port, register through `share_udp_port`, never bind; the claim test runs on every game packet, so keep it cheap. [exposure](docs/exposure.md#one-socket-or-two-and-why-one-is-the-point)
 

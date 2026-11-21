@@ -1,4 +1,4 @@
-class_name DotQueryChallenge
+class_name GSQueryChallenge
 extends RefCounted
 
 ## Address-bound challenge cookies, stored nowhere.
@@ -16,12 +16,12 @@ var _secret: PackedByteArray = PackedByteArray()
 
 func _init(p_ttl_sec: float = 30.0) -> void:
 	ttl_sec = maxf(1.0, p_ttl_sec)
-	_secret = DotHash.random_bytes(SECRET_BYTES)
+	_secret = GSHash.random_bytes(SECRET_BYTES)
 
 
 ## Throws away every outstanding cookie.
 func rotate_secret() -> void:
-	_secret = DotHash.random_bytes(SECRET_BYTES)
+	_secret = GSHash.random_bytes(SECRET_BYTES)
 
 
 ## An 8-byte cookie for the dot query protocol, as a positive integer.
@@ -57,7 +57,7 @@ func _verify(address: String, port: int, value: int, width: int) -> bool:
 		# Both buckets are always checked, and the result is accumulated rather
 		# than returned early, so the time taken does not reveal which bucket (if
 		# either) matched.
-		if DotHash.constant_time_equal(
+		if GSHash.constant_time_equal(
 			_cookie(address, port, int(bucket), width), presented
 		):
 			matched = true
@@ -70,10 +70,10 @@ func _cookie(address: String, port: int, bucket: int, width: int) -> PackedByteA
 	# an address still has to guess the source port the cookie was mailed to, and a
 	# legitimate querier is using the same socket it will send the query from.
 	var message := "%s|%d|%d|%d" % [
-		DotBanManager.normalise_address(address), port, bucket, width
+		GSBanManager.normalise_address(address), port, bucket, width
 	]
 
-	var raw := DotHash.hmac_sha256(_secret, message.to_utf8_buffer())
+	var raw := GSHash.hmac_sha256(_secret, message.to_utf8_buffer())
 	var cookie := raw.slice(0, width)
 
 	# Clear the top bit of the top byte (little-endian): keeps the cookie positive in int64/int32 and never

@@ -6,11 +6,11 @@ extends EditorPlugin
 const _ICON := "res://addons/dot_server_query/icon_placeholder.svg"
 
 const _TYPES := [
-	["DotQueryHost", "Node", "res://addons/dot_server_query/host/dot_query_host.gd"],
-	["DotQuerySource", "Node", "res://addons/dot_server_query/source/dot_query_source.gd"],
-	["DotQueryServer", "Node", "res://addons/dot_server_query/dqp/dot_query_server.gd"],
-	["DotA2SServer", "Node", "res://addons/dot_server_query/a2s/dot_a2s_server.gd"],
-	["DotQueryStats", "Node", "res://addons/dot_server_query/stats/dot_query_stats.gd"],
+	["GSQueryHost", "Node", "res://addons/dot_server_query/host/dot_query_host.gd"],
+	["GSQuerySource", "Node", "res://addons/dot_server_query/source/dot_query_source.gd"],
+	["GSQueryServer", "Node", "res://addons/dot_server_query/dqp/dot_query_server.gd"],
+	["GSA2SServer", "Node", "res://addons/dot_server_query/a2s/dot_a2s_server.gd"],
+	["GSQueryStats", "Node", "res://addons/dot_server_query/stats/dot_query_stats.gd"],
 ]
 
 

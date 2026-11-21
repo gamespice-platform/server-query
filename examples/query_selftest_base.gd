@@ -8,9 +8,9 @@ const SELFTEST_ARG := "--selftest"
 ## listing prints to say which game this is.
 const APP_URL := "dot-example-fc"
 
-var server: DotServer
-var host: DotQueryHost
-var stats_bridge: DotQueryStats
+var server: GSServer
+var host: GSQueryHost
+var stats_bridge: GSQueryStats
 
 ## Sections entered against sections that ran to their last line, and against this. A
 ## runtime error inside a section aborts that function and nothing says so; a section that
@@ -50,7 +50,7 @@ func _check(what: String, passed: bool) -> void:
 ## Runs a command as the local console and returns its output.
 func _run(line: String) -> String:
 	var lines := PackedStringArray()
-	var ctx := DotCmdContext.console("", PackedStringArray())
+	var ctx := GSCmdContext.console("", PackedStringArray())
 	ctx.reply_sink = func(text: String) -> void: lines.append(text)
 	server.console.execute(line, ctx)
 	return "\n".join(lines)
@@ -67,11 +67,11 @@ func _bytes_contain(haystack: PackedByteArray, needle: PackedByteArray) -> bool:
 func _a2s_request(request: int, with_payload: bool, challenge: int) -> PackedByteArray:
 	var out := PackedByteArray()
 	out.resize(5)
-	out.encode_u32(0, DotA2SServer.HEADER_SINGLE)
+	out.encode_u32(0, GSA2SServer.HEADER_SINGLE)
 	out.encode_u8(4, request)
 
 	if with_payload:
-		out.append_array(DotA2SServer.INFO_PAYLOAD.to_utf8_buffer())
+		out.append_array(GSA2SServer.INFO_PAYLOAD.to_utf8_buffer())
 		out.append(0)
 
 	if challenge >= 0:
@@ -97,7 +97,7 @@ class _A2SReader extends RefCounted:
 		if data.size() < 4:
 			return false
 		offset = 4
-		return data.decode_u32(0) == DotA2SServer.HEADER_SINGLE
+		return data.decode_u32(0) == GSA2SServer.HEADER_SINGLE
 
 	func skip(n: int) -> _A2SReader:
 		offset += n
@@ -136,9 +136,9 @@ class _A2SReader extends RefCounted:
 
 
 ## Gets a valid A2S challenge for an address, the way a real client would.
-func _a2s_cookie(query: DotQueryServer, address: String, port: int) -> int:
+func _a2s_cookie(query: GSQueryServer, address: String, port: int) -> int:
 	var reply := query.handle_datagram(
-		_a2s_request(DotA2SServer.REQUEST_INFO, true, 0), address, port
+		_a2s_request(GSA2SServer.REQUEST_INFO, true, 0), address, port
 	)
 	var reader := _A2SReader.new(reply[0])
 	reader.single()
@@ -147,13 +147,13 @@ func _a2s_cookie(query: DotQueryServer, address: String, port: int) -> int:
 
 
 ## A provider standing in for a game, to prove the plug-in point moves the revision.
-class SectionProbe extends DotQueryProvider:
+class SectionProbe extends GSQueryProvider:
 	var round_number: int = 0
 
 	func _provider_name() -> String:
 		return "probe"
 
-	func _contribute(snapshot: DotQuerySnapshot) -> void:
+	func _contribute(snapshot: GSQuerySnapshot) -> void:
 		snapshot.contribute_game({"round": round_number})
 
 
@@ -207,12 +207,12 @@ class FakeValues extends RefCounted:
 
 
 ## A provider standing in for a game, so the plug-in point is exercised.
-class ExampleQueryProvider extends DotQueryProvider:
+class ExampleQueryProvider extends GSQueryProvider:
 	var bots: int = 0
 
 	func _provider_name() -> String:
 		return "example"
 
-	func _contribute(snapshot: DotQuerySnapshot) -> void:
+	func _contribute(snapshot: GSQuerySnapshot) -> void:
 		snapshot.info["bots"] = bots
 		snapshot.contribute_game({"phase": "warmup", "round": 1})
