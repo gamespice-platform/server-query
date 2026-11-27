@@ -2,6 +2,8 @@
 
 Lets a game server answer "who is on you, what are you running, and is it worth joining". It speaks two protocols from one snapshot, so they never disagree about the player count.
 
+This is a GameSpice addon, MIT licensed and built with Claude Code. `examples/query_selftest.tscn` runs headless and exercises both protocols. The query port is live on the servers of the games in [Zee's Games](https://zeesgames.com), which are all built on GameSpice addons. Bug reports go to the [issue tracker](https://github.com/gamespice-platform/server-query/issues).
+
 | | **DQP** (the GS query protocol) | **A2S** |
 | --- | --- | --- |
 | Default | on | off |
@@ -118,8 +120,26 @@ Only a provider can report the bot count, because the server never sees a bot co
 
 Import the project once, then run `examples/query_selftest.tscn` headless with Godot. It runs both protocols without a socket and also binds the listeners for real.
 
-## Status and licence
+## Used by
 
-Part of the [**GameSpice**](https://gamespice.net) platform: a family of Godot addons. Written with Claude Code and maintained by `gamemann`. Every addon has headless tests, but little of this has been played by real users yet, so expect rough edges and please [open an issue](https://github.com/gamespice-platform/server-query/issues) when you hit one.
+These games from Zee's Games vendor this addon:
+
+- [Fatal Contact](https://zeesgames.com/fatal-contact)
+- [Airdrift](https://zeesgames.com/airdrift)
+- [Playlot](https://zeesgames.com/playlot)
+- [Hungario](https://zeesgames.com/hungario)
+- [Buses From Hell](https://zeesgames.com/buses-from-hell)
+- [Smash Copter](https://zeesgames.com/smash-copter)
+- [Zombie Zone](https://zeesgames.com/zombie-zone)
+- [Hide n Seek](https://zeesgames.com/hide-n-seek)
+- [Prop Hunt](https://zeesgames.com/prop-hunt)
+- [Murder Mystery](https://zeesgames.com/murder-mystery)
+- [Deathrun](https://zeesgames.com/deathrun)
+- [Dangerous Delivery](https://zeesgames.com/dangerous-delivery)
+- [Look At Me](https://zeesgames.com/look-at-me)
+
+The whole collection is at [zeesgames.com](https://zeesgames.com).
+
+## Licence
 
 MIT licence, see [LICENSE](LICENSE). The only closed part of the [**GameSpice**](https://gamespice.net) platform is the web back end; you can use your own instead of GameSpice's.
